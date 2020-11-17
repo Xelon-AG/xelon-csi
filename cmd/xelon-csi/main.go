@@ -1,48 +1,47 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/Xelon-AG/xelon-csi/driver"
 )
 
 func main() {
 	var (
-		token      = flag.String("token", "", "Xelon access token")
-		controller = flag.Bool("controller", false, "")
-		// url        = flag.String("api-url", "https://vdcnew.xelon.ch/api/service/", "Xelon API URL")
-		driverName = flag.String("driver-name", driver.DefaultDriverName, "Name for the driver")
-		version    = flag.Bool("version", false, "Print the version and exit.")
+		apiURL   = flag.String("api-url", "https://vdc.xelon.ch/api/service/", "Xelon API URL")
+		endpoint = flag.String("endpoint", "unix:///var/lib/kubelet/plugins/"+driver.DefaultDriverName+"/csi.sock", "CSI endpoint")
+		mode     = flag.String("mode", string(driver.AllMode), "The mode in which the CSI driver will be run (all, node, controller)")
+		token    = flag.String("token", "", "Xelon access token")
+		version  = flag.Bool("version", false, "Print the version and exit.")
 	)
 	flag.Parse()
 
 	if *version {
-		fmt.Printf("%s - %s\n", "dev", "unknown")
+		info := driver.GetVersion()
+		fmt.Println("Xelon Persistent Storage CSI Driver")
+		fmt.Printf(" Version:      %s\n", info.DriverVersion)
+		fmt.Printf(" Built:        %s\n", info.BuildDate)
+		fmt.Printf(" Git commit:   %s\n", info.GitCommit)
+		fmt.Printf(" Git state:    %s\n", info.GitTreeState)
+		fmt.Printf(" Go version:   %s\n", info.GoVersion)
+		fmt.Printf(" OS/Arch:      %s\n", info.Platform)
 		os.Exit(0)
 	}
 
-	drv, err := driver.NewDriver(*token, *driverName, *controller)
+	drv, err := driver.NewDriver(&driver.Config{
+		BaseURL:  *apiURL,
+		Endpoint: *endpoint,
+		Mode:     driver.Mode(*mode),
+		Token:    *token,
+	})
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-c
-		cancel()
-	}()
-
-	if err := drv.Run(ctx); err != nil {
+	if err := drv.Run(); err != nil {
 		log.Fatalln(err)
 	}
 }
