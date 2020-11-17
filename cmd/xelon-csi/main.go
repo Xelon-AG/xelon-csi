@@ -31,7 +31,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	drv, err := driver.NewDriver(&driver.Config{
+	d, err := driver.NewDriver(&driver.Config{
 		BaseURL:  *apiURL,
 		Endpoint: *endpoint,
 		Mode:     driver.Mode(*mode),
@@ -41,7 +41,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	if err := drv.Run(); err != nil {
+	if err := d.Run(); err != nil {
 		log.Fatalln(err)
 	}
 }

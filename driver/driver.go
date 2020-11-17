@@ -6,95 +6,135 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
-	"sync"
+	"syscall"
 
-	"github.com/Xelon-AG/xelon-sdk-go/xelon"
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"k8s.io/klog"
 )
 
-const DefaultDriverName = "csi.xelon.ch"
+const (
+	DefaultDriverName = "csi.xelon.ch"
 
+	ControllerMode Mode = "controller"
+	NodeMode       Mode = "node"
+	AllMode        Mode = "all"
+)
+
+// Mode represents the mode in which the CSI driver started
+type Mode string
+
+// Config is used to configure a new Driver
+type Config struct {
+	BaseURL  string
+	Endpoint string
+	Mode     Mode
+	Token    string
+}
+
+// Driver implements the following CSI interfaces:
+//   - csi.ControllerServer
+//   - csi.NodeServer
+//   - csi.IdentityServer
 type Driver struct {
-	name string
+	*controllerService
+	*nodeService
 
-	isController bool
+	config *Config
 
 	srv *grpc.Server
-
-	client   *xelon.Client
-	tenantID string
-
-	mux sync.Mutex
 }
 
-func NewDriver(token, driverName string, controller bool) (*Driver, error) {
-	if driverName == "" {
-		driverName = DefaultDriverName
+// NewDriver returns a configured CSI Xelon plugin.
+func NewDriver(config *Config) (*Driver, error) {
+	klog.Infof("Driver: %s, Version: %s", DefaultDriverName, driverVersion)
+
+	d := &Driver{config: config}
+
+	switch config.Mode {
+	case ControllerMode:
+		d.controllerService = newControllerService(config)
+	case NodeMode:
+		d.nodeService = newNodeService()
+	case AllMode:
+		d.controllerService = newControllerService(config)
+		d.nodeService = newNodeService()
+	default:
+		return nil, fmt.Errorf("unknown mode for driver: %s", config.Mode)
 	}
 
-	client := xelon.NewClient(token)
-	client.SetBaseURL("https://vdcnew.xelon.ch/api/service/")
-	client.SetUserAgent("xelon-csi/dev")
-
-	tenant, _, err := client.Tenant.Get(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("couldn't initialize Xelon client: %s", err)
-	}
-
-	return &Driver{
-		name:         driverName,
-		isController: controller,
-
-		client:   client,
-		tenantID: tenant.TenantID,
-	}, nil
+	return d, nil
 }
 
-func (d *Driver) Run(ctx context.Context) error {
-	// url-socket
-	u, _ := url.Parse("unix:///var/lib/kubelet/plugins/csi.xelon.ch/csi.sock")
-	grpcAddr := path.Join(u.Host, filepath.FromSlash(u.Path))
-	if u.Host == "" {
-		grpcAddr = filepath.FromSlash(u.Path)
-	}
-	if err := os.Remove(grpcAddr); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove unix domain socket file %s, error: %s", grpcAddr, err)
-	}
-
-	grpcListener, err := net.Listen(u.Scheme, grpcAddr)
+// Run starts the CSI Xelon plugin on the given endpoint.
+func (d *Driver) Run() error {
+	endpointURL, err := url.Parse(d.config.Endpoint)
 	if err != nil {
-		return fmt.Errorf("failed to listen: %v", err)
+		return err
 	}
 
-	// log response errors for better observability
-	errHandler := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	if endpointURL.Scheme != "unix" {
+		klog.Errorf("only unix domain sockets are supported, not %s", endpointURL.Scheme)
+		return errSchemeNotSupported
+	}
+
+	addr := path.Join(endpointURL.Host, filepath.FromSlash(endpointURL.Path))
+
+	klog.Infof("Removing existing socket file if existing")
+	if err := os.Remove(addr); err != nil && os.IsNotExist(err) {
+		klog.Errorf("failed to removed existing socket, %s", err)
+		return errRemovingExistingSocket
+	}
+
+	dir := filepath.Dir(addr)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err = os.MkdirAll(dir, os.ModePerm)
+		if err != nil {
+			return err
+		}
+	}
+
+	listener, err := net.Listen(endpointURL.Scheme, addr)
+	if err != nil {
+		return err
+	}
+
+	// log response errors through a grpc unary interceptor
+	logErrorHandler := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		resp, err := handler(ctx, req)
 		if err != nil {
 			klog.Errorf("error for %s: %v", info.FullMethod, err)
 		}
 		return resp, err
 	}
-	d.srv = grpc.NewServer(grpc.UnaryInterceptor(errHandler))
+
+	d.srv = grpc.NewServer(grpc.UnaryInterceptor(logErrorHandler))
+
 	csi.RegisterIdentityServer(d.srv, d)
-	csi.RegisterControllerServer(d.srv, d)
-	csi.RegisterNodeServer(d.srv, d)
 
-	var eg errgroup.Group
-	eg.Go(func() error {
-		go func() {
-			<-ctx.Done()
-			klog.Info("server stopped")
-			d.mux.Lock()
-			d.mux.Unlock()
-			d.srv.GracefulStop()
-		}()
-		return d.srv.Serve(grpcListener)
-	})
+	switch d.config.Mode {
+	case ControllerMode:
+		csi.RegisterControllerServer(d.srv, d)
+	case NodeMode:
+		csi.RegisterNodeServer(d.srv, d)
+	case AllMode:
+		csi.RegisterControllerServer(d.srv, d)
+		csi.RegisterNodeServer(d.srv, d)
+	default:
+		return fmt.Errorf("unknown mode for driver: %s", d.config.Mode)
+	}
 
-	return eg.Wait()
+	// graceful shutdown
+	gracefulStop := make(chan os.Signal, 1)
+	signal.Notify(gracefulStop, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-gracefulStop
+		d.srv.GracefulStop()
+	}()
+
+	klog.Infof("Xelon CSI server started on %s", d.config.Endpoint)
+	return d.srv.Serve(listener)
 }
