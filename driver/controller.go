@@ -2,12 +2,39 @@ package driver
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/Xelon-AG/xelon-sdk-go/xelon"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog"
 )
+
+type controllerService struct {
+	xelon    *xelon.Client
+	tenantID string
+
+	// mux sync.Mutex
+}
+
+func newControllerService(config *Config) (*controllerService, error) {
+	userAgent := fmt.Sprintf("%s/%s (%s)", DefaultDriverName, driverVersion, gitCommit)
+
+	client := xelon.NewClient(config.Token)
+	client.SetBaseURL(config.BaseURL)
+	client.SetUserAgent(userAgent)
+
+	tenant, _, err := client.Tenant.Get(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return &controllerService{
+		xelon:    client,
+		tenantID: tenant.TenantID,
+	}, nil
+}
 
 func (d *Driver) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
 	klog.V(4).Infof("ListVolumes is not yet implemented")
@@ -65,8 +92,6 @@ func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequ
 
 // ListSnapshots returns the information about all snapshots on the storage
 // system within the given parameters regardless of how they were created.
-// ListSnapshots should not list a snapshot that is being created but has not
-// been cut successfully yet.
 func (d *Driver) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
 	klog.V(4).Infof("ListSnapshots is not yet implemented")
 	return nil, status.Error(codes.Unimplemented, "ListSnapshots is not yet implemented")
@@ -75,11 +100,11 @@ func (d *Driver) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReques
 // ControllerExpandVolume is called from the resizer to increase the volume size.
 func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
 	klog.V(4).Infof("ControllerExpandVolume is not yet implemented")
-	return nil, status.Error(codes.Unimplemented, "ControllerExpandVolume	 is not yet implemented")
+	return nil, status.Error(codes.Unimplemented, "ControllerExpandVolume is not yet implemented")
 }
 
 // ControllerGetVolume gets a specific volume.
 func (d *Driver) ControllerGetVolume(ctx context.Context, req *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
 	klog.V(4).Infof("ControllerGetVolume is not yet implemented")
-	return nil, status.Error(codes.Unimplemented, "ControllerGetVolume	 is not yet implemented")
+	return nil, status.Error(codes.Unimplemented, "ControllerGetVolume is not yet implemented")
 }

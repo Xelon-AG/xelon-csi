@@ -56,11 +56,21 @@ func NewDriver(config *Config) (*Driver, error) {
 
 	switch config.Mode {
 	case ControllerMode:
-		d.controllerService = newControllerService(config)
+		controllerService, err := newControllerService(config)
+		if err != nil {
+			klog.Errorf("couldn't initialize Xelon controller service, %s", err)
+			return nil, err
+		}
+		d.controllerService = controllerService
 	case NodeMode:
 		d.nodeService = newNodeService()
 	case AllMode:
-		d.controllerService = newControllerService(config)
+		controllerService, err := newControllerService(config)
+		if err != nil {
+			klog.Errorf("couldn't initialize Xelon controller service, %s", err)
+			return nil, err
+		}
+		d.controllerService = controllerService
 		d.nodeService = newNodeService()
 	default:
 		return nil, fmt.Errorf("unknown mode for driver: %s", config.Mode)
