@@ -20,11 +20,28 @@ LDFLAGS := $(LDFLAGS) -X github.com/Xelon-AG/xelon-csi/driver.gitTreeState=${GIT
 LDFLAGS := $(LDFLAGS) -X github.com/Xelon-AG/xelon-csi/driver.buildDate=${BUILD_DATE}
 
 
+## tools: Install required tooling.
+.PHONY: tools
+tools:
+ifeq (,$(wildcard ./.bin/golangci-lint*))
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b .bin/ v1.24.0
+else
+	@echo "==> Required tooling is already installed"
+endif
+
+
 ## clean: Delete the build directory.
 .PHONY: clean
 clean:
 	@echo "==> Removing '$(BUILD_DIR)' directory..."
 	@rm -rf $(BUILD_DIR)
+
+
+## lint: Lint code with golangci-lint.
+.PHONY: lint
+lint:
+	@echo "==> Linting code with 'golangci-lint'..."
+	@.bin/golangci-lint run ./...
 
 
 ## test: Run all unit tests.
