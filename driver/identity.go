@@ -10,8 +10,8 @@ import (
 
 func (d *Driver) GetPluginInfo(_ context.Context, _ *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
 	resp := &csi.GetPluginInfoResponse{
-		Name:          d.name,
-		VendorVersion: "dev",
+		Name:          DefaultDriverName,
+		VendorVersion: driverVersion,
 	}
 
 	klog.V(4).Infof("GetPluginInfo called")
@@ -19,7 +19,7 @@ func (d *Driver) GetPluginInfo(_ context.Context, _ *csi.GetPluginInfoRequest) (
 }
 
 func (d *Driver) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
-	res := &csi.GetPluginCapabilitiesResponse{
+	resp := &csi.GetPluginCapabilitiesResponse{
 		Capabilities: []*csi.PluginCapability{
 			{
 				Type: &csi.PluginCapability_Service_{
@@ -28,25 +28,11 @@ func (d *Driver) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCa
 					},
 				},
 			},
-			{
-				Type: &csi.PluginCapability_Service_{
-					Service: &csi.PluginCapability_Service{
-						Type: csi.PluginCapability_Service_VOLUME_ACCESSIBILITY_CONSTRAINTS,
-					},
-				},
-			},
-			{
-				Type: &csi.PluginCapability_VolumeExpansion_{
-					VolumeExpansion: &csi.PluginCapability_VolumeExpansion{
-						Type: csi.PluginCapability_VolumeExpansion_ONLINE,
-					},
-				},
-			},
 		},
 	}
 
 	klog.V(4).Infof("GetPluginCapabilities called")
-	return res, nil
+	return resp, nil
 }
 
 // Probe allows to verify that the plugin is in a healthy and ready state
