@@ -94,7 +94,7 @@ func (d *Driver) Run() error {
 	addr := path.Join(endpointURL.Host, filepath.FromSlash(endpointURL.Path))
 
 	klog.Infof("Removing existing socket file if existing")
-	if err := os.Remove(addr); err != nil && os.IsNotExist(err) {
+	if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
 		klog.Errorf("failed to removed existing socket, %s", err)
 		return errRemovingExistingSocket
 	}
