@@ -3,6 +3,7 @@ package driver
 import (
 	"context"
 
+	"github.com/Xelon-AG/xelon-csi/driver/internal"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -13,10 +14,19 @@ type nodeService struct {
 	nodeID string
 }
 
-func newNodeService() *nodeService {
-	return &nodeService{
-		nodeID: "unknown",
+func newNodeService(config *Config) (*nodeService, error) {
+	klog.Infof("Initializing Xelon node service...")
+
+	localVMID, err := internal.GetNodeLocalVMID(config.MetadataFile)
+	if err != nil {
+		return nil, err
 	}
+
+	klog.Infof("Node ID: %s", localVMID)
+
+	return &nodeService{
+		nodeID: localVMID,
+	}, nil
 }
 
 // NodeStageVolume mounts the volume to a staging path on the node. This is

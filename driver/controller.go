@@ -19,6 +19,8 @@ type controllerService struct {
 }
 
 func newControllerService(config *Config) (*controllerService, error) {
+	klog.Infof("Initializing Xelon controller service...")
+
 	userAgent := fmt.Sprintf("%s/%s (%s)", DefaultDriverName, driverVersion, gitCommit)
 
 	client := xelon.NewClient(config.Token)
@@ -29,6 +31,8 @@ func newControllerService(config *Config) (*controllerService, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	klog.Infof("Tenant ID: %s", tenant.TenantID)
 
 	return &controllerService{
 		xelon:    client,
@@ -41,6 +45,7 @@ func (d *Driver) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (
 	return nil, status.Error(codes.Unimplemented, "ListVolumes is not yet implemented")
 }
 
+// CreateVolume creates a new volume with the given CreateVolumeRequest.
 func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	klog.V(4).Infof("CreateVolume is not yet implemented")
 	return nil, status.Error(codes.Unimplemented, "CreateVolume is not yet implemented")

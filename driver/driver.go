@@ -29,10 +29,11 @@ type Mode string
 
 // Config is used to configure a new Driver
 type Config struct {
-	BaseURL  string
-	Endpoint string
-	Mode     Mode
-	Token    string
+	BaseURL      string
+	Endpoint     string
+	Mode         Mode
+	MetadataFile string
+	Token        string
 }
 
 // Driver implements the following CSI interfaces:
@@ -63,7 +64,11 @@ func NewDriver(config *Config) (*Driver, error) {
 		}
 		d.controllerService = controllerService
 	case NodeMode:
-		d.nodeService = newNodeService()
+		nodeService, err := newNodeService(config)
+		if err != nil {
+			klog.Errorf("couldn't initialize Xelon node service, %s", err)
+		}
+		d.nodeService = nodeService
 	case AllMode:
 		controllerService, err := newControllerService(config)
 		if err != nil {
@@ -71,7 +76,12 @@ func NewDriver(config *Config) (*Driver, error) {
 			return nil, err
 		}
 		d.controllerService = controllerService
-		d.nodeService = newNodeService()
+
+		nodeService, err := newNodeService(config)
+		if err != nil {
+			klog.Errorf("couldn't initialize Xelon node service, %s", err)
+		}
+		d.nodeService = nodeService
 	default:
 		return nil, fmt.Errorf("unknown mode for driver: %s", config.Mode)
 	}
