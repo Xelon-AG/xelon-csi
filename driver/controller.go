@@ -49,7 +49,7 @@ func newControllerService(config *Config) (*controllerService, error) {
 
 // CreateVolume creates a new volume with the given CreateVolumeRequest.
 func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
-	klog.V(4).Infof("CreateVolume called with %s", *req)
+	klog.V(4).Infof("CreateVolume called with %v", *req)
 
 	if req.Name == "" {
 		return nil, status.Error(codes.InvalidArgument, "Name must be provided")
