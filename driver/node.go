@@ -99,15 +99,14 @@ func (d *Driver) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabi
 	}, nil
 }
 
-// NodeGetInfo returns the supported capabilities of the node server. This
-// should eventually return the droplet ID if possible. This is used so the CO
-// knows where to place the workload. The result of this function will be used
-// by the CO in ControllerPublishVolume.
+// NodeGetInfo returns the supported capabilities of the node server. The result of this
+// function will be used by the CO in ControllerPublishVolume.
 func (d *Driver) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
 	klog.V(4).Infof("NodeGetInfo called")
+
 	return &csi.NodeGetInfoResponse{
-		NodeId:            "ccm-agent-1",
-		MaxVolumesPerNode: 22,
+		NodeId:            d.nodeService.nodeID,
+		MaxVolumesPerNode: 15,
 	}, nil
 }
 

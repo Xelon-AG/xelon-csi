@@ -18,7 +18,7 @@ func (d *Driver) GetPluginInfo(_ context.Context, _ *csi.GetPluginInfoRequest) (
 	return resp, nil
 }
 
-func (d *Driver) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
+func (d *Driver) GetPluginCapabilities(_ context.Context, _ *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
 	resp := &csi.GetPluginCapabilitiesResponse{
 		Capabilities: []*csi.PluginCapability{
 			{
@@ -36,7 +36,7 @@ func (d *Driver) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCa
 }
 
 // Probe allows to verify that the plugin is in a healthy and ready state
-func (d *Driver) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.ProbeResponse, error) {
+func (d *Driver) Probe(_ context.Context, _ *csi.ProbeRequest) (*csi.ProbeResponse, error) {
 	return &csi.ProbeResponse{
 		Ready: &wrappers.BoolValue{
 			Value: true,

@@ -11,6 +11,13 @@ import (
 	"k8s.io/klog"
 )
 
+var (
+	// controllerCapabilities represents the capabilities of the Xelon Volumes
+	controllerCapabilities = []csi.ControllerServiceCapability_RPC_Type{
+		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+	}
+)
+
 type controllerService struct {
 	xelon    *xelon.Client
 	tenantID string
@@ -32,7 +39,7 @@ func newControllerService(config *Config) (*controllerService, error) {
 		return nil, err
 	}
 
-	klog.Infof("Tenant ID: %s", tenant.TenantID)
+	klog.V(4).Infof("Tenant ID: %s", tenant.TenantID)
 
 	return &controllerService{
 		xelon:    client,
@@ -40,20 +47,47 @@ func newControllerService(config *Config) (*controllerService, error) {
 	}, nil
 }
 
-func (d *Driver) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
-	klog.V(4).Infof("ListVolumes is not yet implemented")
-	return nil, status.Error(codes.Unimplemented, "ListVolumes is not yet implemented")
-}
-
 // CreateVolume creates a new volume with the given CreateVolumeRequest.
 func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
-	klog.V(4).Infof("CreateVolume is not yet implemented")
-	return nil, status.Error(codes.Unimplemented, "CreateVolume is not yet implemented")
+	klog.V(4).Infof("CreateVolume called with %s", *req)
+
+	if req.Name == "" {
+		return nil, status.Error(codes.InvalidArgument, "Name must be provided")
+	}
+
+	// validation
+
+	volumeName := req.Name
+
+	storages, _, err := d.xelon.PersistentStorage.List(ctx, d.tenantID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	for _, storage := range storages {
+		if storage.Name == volumeName {
+			// volume already exists
+			return &csi.CreateVolumeResponse{
+				Volume: &csi.Volume{
+					VolumeId:      storage.LocalID,
+					CapacityBytes: int64(storage.Capacity),
+				},
+			}, nil
+		}
+	}
+
+	// creating volume via Xelon API
+
+	return &csi.CreateVolumeResponse{
+		Volume: &csi.Volume{
+			VolumeId: "123456-abc",
+		},
+	}, nil
 }
 
 func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
-	klog.V(4).Infof("DeleteVolume is not yet implemented")
-	return nil, status.Error(codes.Unimplemented, "DeleteVolume is not yet implemented")
+	klog.Infof("DeleteVolume called")
+	return &csi.DeleteVolumeResponse{}, nil
 }
 
 func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
@@ -72,14 +106,32 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 	return nil, status.Error(codes.Unimplemented, "ValidateVolumeCapabilities is not yet implemented")
 }
 
-func (d *Driver) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
-	klog.V(4).Infof("GetCapacity is not yet implemented")
-	return nil, status.Error(codes.Unimplemented, "GetCapacity is not yet implemented")
+func (d *Driver) ListVolumes(_ context.Context, _ *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
+	klog.V(4).Infof("ListVolumes is not yet implemented")
+	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (d *Driver) ControllerGetCapabilities(ctx context.Context, req *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
-	klog.V(4).Infof("ControllerGetCapabilities is not yet implemented")
-	return nil, status.Error(codes.Unimplemented, "ControllerGetCapabilities is not yet implemented")
+func (d *Driver) GetCapacity(_ context.Context, _ *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
+	klog.V(4).Infof("GetCapacity is not yet implemented")
+	return nil, status.Error(codes.Unimplemented, "")
+}
+
+// ControllerGetCapabilities get capabilities of the Xelon controller.
+func (d *Driver) ControllerGetCapabilities(_ context.Context, req *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
+	klog.V(4).Infof("ControllerGetCapabilities called with %v", *req)
+
+	var capabilities []*csi.ControllerServiceCapability
+	for _, capability := range controllerCapabilities {
+		capabilities = append(capabilities, &csi.ControllerServiceCapability{
+			Type: &csi.ControllerServiceCapability_Rpc{
+				Rpc: &csi.ControllerServiceCapability_RPC{
+					Type: capability,
+				},
+			},
+		})
+	}
+
+	return &csi.ControllerGetCapabilitiesResponse{Capabilities: capabilities}, nil
 }
 
 // CreateSnapshot will be called by the CO to create a new snapshot from a

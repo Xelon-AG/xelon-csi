@@ -3,10 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/Xelon-AG/xelon-csi/driver"
+	"k8s.io/klog"
 )
 
 func main() {
@@ -18,6 +18,7 @@ func main() {
 		token        = flag.String("token", "", "Xelon access token")
 		version      = flag.Bool("version", false, "Print the version and exit.")
 	)
+	klog.InitFlags(nil)
 	flag.Parse()
 
 	if *version {
@@ -40,10 +41,10 @@ func main() {
 		Token:        *token,
 	})
 	if err != nil {
-		log.Fatalln(err)
+		klog.Fatalln(err)
 	}
 
 	if err := d.Run(); err != nil {
-		log.Fatalln(err)
+		klog.Fatalln(err)
 	}
 }
