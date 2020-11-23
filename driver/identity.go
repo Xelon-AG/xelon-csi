@@ -5,7 +5,7 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/wrappers"
-	"k8s.io/klog"
+	"github.com/sirupsen/logrus"
 )
 
 func (d *Driver) GetPluginInfo(_ context.Context, _ *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
@@ -14,7 +14,11 @@ func (d *Driver) GetPluginInfo(_ context.Context, _ *csi.GetPluginInfoRequest) (
 		VendorVersion: driverVersion,
 	}
 
-	klog.V(4).Infof("GetPluginInfo called")
+	d.log.WithFields(logrus.Fields{
+		"response": resp,
+		"method":   "GetPluginInfo",
+	}).Info("GetPluginInfo called")
+
 	return resp, nil
 }
 
@@ -31,12 +35,20 @@ func (d *Driver) GetPluginCapabilities(_ context.Context, _ *csi.GetPluginCapabi
 		},
 	}
 
-	klog.V(4).Infof("GetPluginCapabilities called")
+	d.log.WithFields(logrus.Fields{
+		"response": resp,
+		"method":   "GetPluginCapabilities",
+	}).Info("GetPluginCapabilities called")
+
 	return resp, nil
 }
 
 // Probe allows to verify that the plugin is in a healthy and ready state
 func (d *Driver) Probe(_ context.Context, _ *csi.ProbeRequest) (*csi.ProbeResponse, error) {
+	d.log.WithFields(logrus.Fields{
+		"method": "Probe",
+	}).Info("Probe called")
+
 	return &csi.ProbeResponse{
 		Ready: &wrappers.BoolValue{
 			Value: true,
