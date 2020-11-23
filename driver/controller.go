@@ -3,12 +3,29 @@ package driver
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/Xelon-AG/xelon-sdk-go/xelon"
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog"
+)
+
+const (
+	_   = iota
+	kiB = 1 << (10 * iota)
+	miB
+	giB
+	tiB
+)
+
+const (
+	minVolumeSizeInBytes     int64 = 5 * giB
+	defaultVolumeSizeInBytes int64 = 10 * giB
 )
 
 var (
@@ -51,15 +68,29 @@ func (d *Driver) initializeControllerService() error {
 
 // CreateVolume creates a new volume with the given CreateVolumeRequest.
 func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
-	klog.V(4).Infof("CreateVolume called with %v", *req)
-
 	if req.Name == "" {
 		return nil, status.Error(codes.InvalidArgument, "Name must be provided")
 	}
+	if req.VolumeCapabilities == nil || len(req.VolumeCapabilities) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume capabilities must be provided")
+	}
 
-	// validation
+	// TODO: validation
+
+	size, err := extractStorage(req.CapacityRange)
+	if err != nil {
+		return nil, status.Errorf(codes.OutOfRange, "Invalid capacity range: %v", err)
+	}
 
 	volumeName := req.Name
+
+	log := d.log.WithFields(logrus.Fields{
+		"method":                 "create_volume",
+		"storage_size_gigabytes": size / giB,
+		"volume_capabilities":    req.VolumeCapabilities,
+		"volume_name":            volumeName,
+	})
+	log.Info("create volume called")
 
 	storages, _, err := d.xelon.PersistentStorage.List(ctx, d.tenantID)
 	if err != nil {
@@ -68,27 +99,65 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	for _, storage := range storages {
 		if storage.Name == volumeName {
-			// volume already exists
+
+			log.Info("volume already created")
 			return &csi.CreateVolumeResponse{
 				Volume: &csi.Volume{
 					VolumeId:      storage.LocalID,
-					CapacityBytes: int64(storage.Capacity),
+					CapacityBytes: int64(storage.Capacity * giB),
 				},
 			}, nil
 		}
 	}
 
-	// creating volume via Xelon API
-
-	return &csi.CreateVolumeResponse{
-		Volume: &csi.Volume{
-			VolumeId: "123456-abc",
+	createRequest := &xelon.PersistentStorageCreateRequest{
+		PersistentStorage: &xelon.PersistentStorage{
+			Name: volumeName,
+			Type: 2,
 		},
-	}, nil
+		Size: int(size / giB),
+	}
+	log.WithField("volume_create_request", createRequest).Info("creating volume")
+	apiResponse, _, err := d.xelon.PersistentStorage.Create(ctx, d.tenantID, createRequest)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	resp := &csi.CreateVolumeResponse{
+		Volume: &csi.Volume{
+			VolumeId:      apiResponse.PersistentStorage.LocalID,
+			CapacityBytes: size,
+		},
+	}
+
+	log.WithField("response", resp).Info("volume was created")
+	return resp, nil
 }
 
 func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
-	klog.Infof("DeleteVolume called")
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID must be provided")
+	}
+
+	log := d.log.WithFields(logrus.Fields{
+		"method":    "delete_volume",
+		"volume_id": req.VolumeId,
+	})
+	log.Info("delete volume called")
+
+	resp, err := d.xelon.PersistentStorage.Delete(ctx, d.tenantID, req.VolumeId)
+	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			log.WithFields(logrus.Fields{
+				"error":    err,
+				"response": resp,
+			}).Warn("assuming volume is deleted because it does not exist")
+			return &csi.DeleteVolumeResponse{}, nil
+		}
+		return nil, err
+	}
+
+	log.WithField("response", resp).Info("volume was deleted")
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
@@ -166,4 +235,61 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 func (d *Driver) ControllerGetVolume(ctx context.Context, req *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
 	klog.V(4).Infof("ControllerGetVolume is not yet implemented")
 	return nil, status.Error(codes.Unimplemented, "ControllerGetVolume is not yet implemented")
+}
+
+// extractStorage extracts the storage size in bytes from the given capacity range. If the capacity
+// range is not satisfied it returns the default volume size. If the capacity range is below or
+// above supported sizes, it returns an error.
+func extractStorage(capacityRange *csi.CapacityRange) (int64, error) {
+	if capacityRange == nil {
+		return defaultVolumeSizeInBytes, nil
+	}
+
+	requiredBytes := capacityRange.GetRequiredBytes()
+	requiredBytesSet := 0 < requiredBytes
+	limitBytes := capacityRange.GetLimitBytes()
+	limitBytesSet := 0 < limitBytes
+
+	if !requiredBytesSet && !limitBytesSet {
+		return defaultVolumeSizeInBytes, nil
+	}
+
+	if requiredBytesSet && limitBytesSet && (limitBytes < requiredBytes) {
+		return 0, fmt.Errorf("limit (%v) cannot be less then required (%v) size", formatBytes(limitBytes), formatBytes(requiredBytes))
+	}
+
+	if requiredBytesSet {
+		return requiredBytes, nil
+	}
+	if limitBytesSet {
+		return limitBytes, nil
+	}
+
+	return minVolumeSizeInBytes, nil
+}
+
+func formatBytes(inputBytes int64) string {
+	output := float64(inputBytes)
+	unit := ""
+
+	switch {
+	case inputBytes >= tiB:
+		output = output / tiB
+		unit = "Ti"
+	case inputBytes >= giB:
+		output = output / giB
+		unit = "Gi"
+	case inputBytes >= miB:
+		output = output / miB
+		unit = "Mi"
+	case inputBytes >= kiB:
+		output = output / kiB
+		unit = "Ki"
+	case inputBytes == 0:
+		return "0"
+	}
+
+	result := strconv.FormatFloat(output, 'f', 1, 64)
+	result = strings.TrimSuffix(result, ".0")
+	return result + unit
 }
