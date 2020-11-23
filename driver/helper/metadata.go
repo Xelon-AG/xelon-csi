@@ -1,17 +1,17 @@
-package internal
+package helper
 
 import (
 	"encoding/json"
 	"os"
 )
 
-type nodeInfo struct {
+type deviceInfo struct {
 	Metadata struct {
 		LocalVMID string `json:"local_id"`
 	} `json:"metadata"`
 }
 
-func GetNodeLocalVMID(metadataFile string) (string, error) {
+func GetDeviceLocalVMID(metadataFile string) (string, error) {
 	f, err := os.Open(metadataFile)
 	if err != nil {
 		return "", err
@@ -20,8 +20,8 @@ func GetNodeLocalVMID(metadataFile string) (string, error) {
 		_ = f.Close()
 	}()
 
-	var nodeInfo nodeInfo
+	var deviceInfo deviceInfo
 	parser := json.NewDecoder(f)
-	err = parser.Decode(&nodeInfo)
-	return nodeInfo.Metadata.LocalVMID, err
+	err = parser.Decode(&deviceInfo)
+	return deviceInfo.Metadata.LocalVMID, err
 }

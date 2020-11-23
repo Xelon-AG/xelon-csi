@@ -25,26 +25,28 @@ type controllerService struct {
 	// mux sync.Mutex
 }
 
-func newControllerService(config *Config) (*controllerService, error) {
-	klog.Infof("Initializing Xelon controller service...")
+func (d *Driver) initializeControllerService() error {
+	d.log.Info("Initializing Xelon controller service")
 
 	userAgent := fmt.Sprintf("%s/%s (%s)", DefaultDriverName, driverVersion, gitCommit)
 
-	client := xelon.NewClient(config.Token)
-	client.SetBaseURL(config.BaseURL)
+	client := xelon.NewClient(d.config.Token)
+	client.SetBaseURL(d.config.BaseURL)
 	client.SetUserAgent(userAgent)
 
 	tenant, _, err := client.Tenant.Get(context.Background())
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	klog.V(4).Infof("Tenant ID: %s", tenant.TenantID)
+	d.log.Debugf("Tenant ID: %s", tenant.TenantID)
 
-	return &controllerService{
+	d.controllerService = &controllerService{
 		xelon:    client,
 		tenantID: tenant.TenantID,
-	}, nil
+	}
+
+	return nil
 }
 
 // CreateVolume creates a new volume with the given CreateVolumeRequest.

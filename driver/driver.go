@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"k8s.io/klog"
 )
@@ -47,22 +48,23 @@ type Driver struct {
 	config *Config
 
 	srv *grpc.Server
+	log *logrus.Entry
 }
 
 // NewDriver returns a configured CSI Xelon plugin.
-func NewDriver(config *Config) (*Driver, error) {
-	klog.Infof("Driver: %s, Version: %s", DefaultDriverName, driverVersion)
+func NewDriver(config *Config, log *logrus.Entry) (*Driver, error) {
+	log.Info("Initializing Xelon CSI driver")
 
 	d := &Driver{config: config}
+	d.log = log
 
 	switch config.Mode {
 	case ControllerMode:
-		controllerService, err := newControllerService(config)
+		err := d.initializeControllerService()
 		if err != nil {
-			klog.Errorf("couldn't initialize Xelon controller service, %s", err)
+			d.log.Errorf("couldn't initialize Xelon controller service, %s", err)
 			return nil, err
 		}
-		d.controllerService = controllerService
 	case NodeMode:
 		nodeService, err := newNodeService(config)
 		if err != nil {
@@ -70,16 +72,15 @@ func NewDriver(config *Config) (*Driver, error) {
 		}
 		d.nodeService = nodeService
 	case AllMode:
-		controllerService, err := newControllerService(config)
+		err := d.initializeControllerService()
 		if err != nil {
-			klog.Errorf("couldn't initialize Xelon controller service, %s", err)
+			d.log.Errorf("couldn't initialize Xelon controller service, %s", err)
 			return nil, err
 		}
-		d.controllerService = controllerService
 
 		nodeService, err := newNodeService(config)
 		if err != nil {
-			klog.Errorf("couldn't initialize Xelon node service, %s", err)
+			d.log.Errorf("couldn't initialize Xelon node service, %s", err)
 		}
 		d.nodeService = nodeService
 	default:

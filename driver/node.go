@@ -3,7 +3,7 @@ package driver
 import (
 	"context"
 
-	"github.com/Xelon-AG/xelon-csi/driver/internal"
+	"github.com/Xelon-AG/xelon-csi/driver/helper"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -17,7 +17,7 @@ type nodeService struct {
 func newNodeService(config *Config) (*nodeService, error) {
 	klog.Infof("Initializing Xelon node service...")
 
-	localVMID, err := internal.GetNodeLocalVMID(config.MetadataFile)
+	localVMID, err := helper.GetDeviceLocalVMID(config.MetadataFile)
 	if err != nil {
 		return nil, err
 	}
