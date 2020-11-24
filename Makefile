@@ -67,6 +67,14 @@ build-docker: build
 	@docker build -t $(IMAGE_NAME) .
 
 
+## release-docker-dev: Release development docker image.
+.PHONE: release-docker-dev
+release-docker-dev: build-docker
+	@echo "==> Releasing development docker image $(IMAGE_NAME):dev..."
+	@docker image tag $(IMAGE_NAME) $(IMAGE_NAME):dev
+	@docker push $(IMAGE_NAME):dev
+
+
 help: Makefile
 	@echo "Usage: make <command>"
 	@echo ""
