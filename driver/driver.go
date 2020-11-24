@@ -14,7 +14,6 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"k8s.io/klog"
 )
 
 const (
@@ -53,7 +52,7 @@ type Driver struct {
 
 // NewDriver returns a configured CSI Xelon plugin.
 func NewDriver(config *Config, log *logrus.Entry) (*Driver, error) {
-	log.Info("Initializing Xelon CSI driver")
+	log.Infof("Initializing Xelon Persistent Storage CSI Driver, built: %s, git state: %s", GetVersion().BuildDate, GetVersion().GitTreeState)
 
 	d := &Driver{config: config}
 	d.log = log
@@ -68,7 +67,7 @@ func NewDriver(config *Config, log *logrus.Entry) (*Driver, error) {
 	case NodeMode:
 		nodeService, err := newNodeService(config)
 		if err != nil {
-			klog.Errorf("couldn't initialize Xelon node service, %s", err)
+			d.log.Errorf("couldn't initialize Xelon node service, %s", err)
 		}
 		d.nodeService = nodeService
 	case AllMode:
@@ -98,15 +97,15 @@ func (d *Driver) Run() error {
 	}
 
 	if endpointURL.Scheme != "unix" {
-		klog.Errorf("only unix domain sockets are supported, not %s", endpointURL.Scheme)
+		d.log.Errorf("only unix domain sockets are supported, not %s", endpointURL.Scheme)
 		return errSchemeNotSupported
 	}
 
 	addr := path.Join(endpointURL.Host, filepath.FromSlash(endpointURL.Path))
 
-	klog.Infof("Removing existing socket file if existing")
+	d.log.WithField("socket", addr).Info("removing existing socket file if existing")
 	if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
-		klog.Errorf("failed to removed existing socket, %s", err)
+		d.log.Errorf("failed to removed existing socket, %s", err)
 		return errRemovingExistingSocket
 	}
 
@@ -127,7 +126,7 @@ func (d *Driver) Run() error {
 	logErrorHandler := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		resp, err := handler(ctx, req)
 		if err != nil {
-			klog.Errorf("error for %s: %v", info.FullMethod, err)
+			d.log.WithError(err).WithField("method", info.FullMethod).Error("method failed")
 		}
 		return resp, err
 	}
@@ -153,9 +152,10 @@ func (d *Driver) Run() error {
 	signal.Notify(gracefulStop, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-gracefulStop
+		d.log.Info("server stopped")
 		d.srv.GracefulStop()
 	}()
 
-	klog.Infof("Xelon CSI server started on %s", d.config.Endpoint)
+	d.log.WithField("grpc_addr", d.srv).Infof("starting server on %s", d.config.Endpoint)
 	return d.srv.Serve(listener)
 }

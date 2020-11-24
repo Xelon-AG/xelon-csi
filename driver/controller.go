@@ -258,6 +258,10 @@ func extractStorage(capacityRange *csi.CapacityRange) (int64, error) {
 		return 0, fmt.Errorf("limit (%v) cannot be less then required (%v) size", formatBytes(limitBytes), formatBytes(requiredBytes))
 	}
 
+	if requiredBytesSet && !limitBytesSet && requiredBytes < minVolumeSizeInBytes {
+		return 0, fmt.Errorf("required (%v) can not be less than minimum supported volume size (%v)", formatBytes(requiredBytes), formatBytes(minVolumeSizeInBytes))
+	}
+
 	if requiredBytesSet {
 		return requiredBytes, nil
 	}
