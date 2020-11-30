@@ -34,14 +34,12 @@ func newNodeService(config *Config) (*nodeService, error) {
 // volume to a staging path. Once mounted, NodePublishVolume will make sure to
 // mount it to the appropriate path
 func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
-	klog.V(4).Infof("NodeStageVolume is not yet implemented")
-	return nil, status.Error(codes.Unimplemented, "NodeStageVolume is not yet implemented")
+	return &csi.NodeStageVolumeResponse{}, nil
 }
 
 // NodeUnstageVolume unstages the volume from the staging path
 func (d *Driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
-	klog.V(4).Infof("NodeUnstageVolume is not yet implemented")
-	return nil, status.Error(codes.Unimplemented, "NodeUnstageVolume is not yet implemented")
+	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
 // NodePublishVolume mounts the volume mounted to the staging path to the target path

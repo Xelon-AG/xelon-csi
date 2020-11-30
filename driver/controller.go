@@ -32,7 +32,11 @@ var (
 	// controllerCapabilities represents the capabilities of the Xelon Volumes
 	controllerCapabilities = []csi.ControllerServiceCapability_RPC_Type{
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+		csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
 	}
+
+	xelonStorageLocalID = DefaultDriverName + "/storage-id"
+	xelonStorageName    = DefaultDriverName + "/storage-name"
 )
 
 type controllerService struct {
@@ -92,7 +96,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	})
 	log.Info("create volume called")
 
-	storages, _, err := d.xelon.PersistentStorage.List(ctx, d.tenantID)
+	storages, _, err := d.xelon.PersistentStorages.List(ctx, d.tenantID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -118,7 +122,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		Size: int(size / giB),
 	}
 	log.WithField("volume_create_request", createRequest).Info("creating volume")
-	apiResponse, _, err := d.xelon.PersistentStorage.Create(ctx, d.tenantID, createRequest)
+	apiResponse, _, err := d.xelon.PersistentStorages.Create(ctx, d.tenantID, createRequest)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -145,7 +149,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	})
 	log.Info("delete volume called")
 
-	resp, err := d.xelon.PersistentStorage.Delete(ctx, d.tenantID, req.VolumeId)
+	resp, err := d.xelon.PersistentStorages.Delete(ctx, d.tenantID, req.VolumeId)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			log.WithFields(logrus.Fields{
@@ -161,15 +165,113 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
+// ControllerPublishVolume attaches the given volume to the node
 func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-	klog.V(4).Infof("ControllerPublishVolume is not yet implemented")
-	return nil, status.Error(codes.Unimplemented, "ControllerPublishVolume is not yet implemented")
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID must be provided")
+	}
+	if req.NodeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "Node ID must be provided")
+	}
+	if req.VolumeCapability == nil {
+		return nil, status.Error(codes.InvalidArgument, "Volume capability must be provided")
+	}
+
+	log := d.log.WithFields(logrus.Fields{
+		"method":    "controller_publish_volume",
+		"node_id":   req.NodeId,
+		"volume_id": req.VolumeId,
+	})
+	log.Info("controller publish volume called")
+
+	// check if storage exist before attaching it
+	storage, resp, err := d.xelon.PersistentStorages.Get(ctx, d.tenantID, req.VolumeId)
+	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			return nil, status.Errorf(codes.NotFound, "volume %q doesn't exist", req.VolumeId)
+		}
+		return nil, err
+	}
+
+	// check if device exist before attaching to it
+	_, resp, err = d.xelon.Devices.Get(ctx, d.tenantID, req.NodeId)
+	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			return nil, status.Errorf(codes.NotFound, "device %q doesn't exist", req.NodeId)
+		}
+		return nil, err
+	}
+
+	attachRequest := &xelon.PersistentStorageAttachDetachRequest{
+		ServerID: []string{req.NodeId},
+	}
+	_, _, err = d.xelon.PersistentStorages.AttachToDevice(ctx, d.tenantID, storage.LocalID, attachRequest)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	log.Info("volume was attached")
+	return &csi.ControllerPublishVolumeResponse{
+		PublishContext: map[string]string{
+			xelonStorageLocalID: storage.LocalID,
+			xelonStorageName:    storage.Name,
+		},
+	}, nil
 }
 
-// ControllerUnpublishVolume de-attaches the given volume from the node
+// ControllerUnpublishVolume detaches the given volume from the node
 func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
-	klog.V(4).Infof("ControllerUnpublishVolume is not yet implemented")
-	return nil, status.Error(codes.Unimplemented, "ControllerUnpublishVolume is not yet implemented")
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID must be provided")
+	}
+	if req.NodeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "Node ID must be provided")
+	}
+
+	log := d.log.WithFields(logrus.Fields{
+		"method":    "controller_unpublish_volume",
+		"node_id":   req.NodeId,
+		"volume_id": req.VolumeId,
+	})
+	log.Info("controller unpublish volume called")
+
+	// check if storage exist before detaching it
+	_, resp, err := d.xelon.PersistentStorages.Get(ctx, d.tenantID, req.VolumeId)
+	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			log.Info("assuming storage is detached because it does not exist")
+			return &csi.ControllerUnpublishVolumeResponse{}, nil
+		}
+		return nil, err
+	}
+
+	// check if device exist before attaching to it
+	_, resp, err = d.xelon.Devices.Get(ctx, d.tenantID, req.NodeId)
+	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			log.Info("storage cannot be detached from deleted devices")
+			return &csi.ControllerUnpublishVolumeResponse{}, nil
+		}
+		return nil, err
+	}
+
+	detachRequest := &xelon.PersistentStorageAttachDetachRequest{
+		ServerID: []string{req.NodeId},
+	}
+	_, resp, err = d.xelon.PersistentStorages.DetachFromDevice(ctx, d.tenantID, req.VolumeId, detachRequest)
+	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			log.WithFields(logrus.Fields{
+				"error": err,
+				"resp":  resp,
+			}).Warn("storage is not attached to device")
+			return &csi.ControllerUnpublishVolumeResponse{}, nil
+		}
+		return nil, err
+	}
+
+	log.Info("volume was detached")
+	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
 func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
