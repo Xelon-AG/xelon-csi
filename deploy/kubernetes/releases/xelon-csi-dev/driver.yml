@@ -67,7 +67,7 @@ spec:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
             - name: metadata-file
-              mountPath: /etc/init.d/metadata.json
+              mountPath: /etc/init.d
               readOnly: true
         - name: csi-provisioner
           image: k8s.gcr.io/sig-storage/csi-provisioner:v2.0.2
@@ -84,9 +84,8 @@ spec:
         - name: csi-attacher
           image: k8s.gcr.io/sig-storage/csi-attacher:v3.0.0
           args:
-            - "--v=5"
             - "--csi-address=$(CSI_ADDRESS)"
-            - "--leader-election"
+            - "--v=5"
           env:
             - name: CSI_ADDRESS
               value: /var/lib/csi/sockets/pluginproxy/csi.sock
@@ -98,15 +97,8 @@ spec:
           emptyDir: {}
         - name: metadata-file
           hostPath:
-            path: /etc/init.d/metadata.json
-            type: File
-
----
-kind: ServiceAccount
-apiVersion: v1
-metadata:
-  name: xelon-csi-controller-sa
-  namespace: kube-system
+            # TODO: fix issue with Rancher and mount metadata.json only
+            path: /etc/init.d
 
 ---
 kind: ClusterRole
@@ -114,27 +106,27 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: xelon-csi-provisioner-role
 rules:
-  - apiGroups: [ "" ]
-    resources: [ "persistentvolumes" ]
-    verbs: [ "get", "list", "watch", "create", "delete" ]
-  - apiGroups: [ "" ]
-    resources: [ "persistentvolumeclaims" ]
-    verbs: [ "get", "list", "watch", "update" ]
-  - apiGroups: [ "storage.k8s.io" ]
-    resources: [ "storageclasses" ]
-    verbs: [ "get", "list", "watch" ]
-  - apiGroups: [ "" ]
-    resources: [ "events" ]
-    verbs: [ "list", "watch", "create", "update", "patch" ]
-  - apiGroups: [ "storage.k8s.io" ]
-    resources: [ "csinodes" ]
-    verbs: [ "get", "list", "watch" ]
-  - apiGroups: [ "" ]
-    resources: [ "nodes" ]
-    verbs: [ "get", "list", "watch" ]
-  - apiGroups: [ "storage.k8s.io" ]
-    resources: [ "volumeattachments" ]
-    verbs: [ "get", "list", "watch" ]
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "update"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["list", "watch", "create", "update", "patch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csinodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["volumeattachments"]
+    verbs: ["get", "list", "watch"]
 
 ---
 kind: ClusterRoleBinding
@@ -149,6 +141,43 @@ roleRef:
   kind: ClusterRole
   name: xelon-csi-provisioner-role
   apiGroup: rbac.authorization.k8s.io
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: xelon-csi-attacher-role
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csinodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["volumeattachments"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["volumeattachments/status"]
+    verbs: ["patch"]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: xelon-csi-attacher-binding
+subjects:
+  - kind: ServiceAccount
+    name: xelon-csi-controller-sa
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: xelon-csi-attacher-role
+  apiGroup: rbac.authorization.k8s.io
+
 
 ---
 ########################################
@@ -184,7 +213,7 @@ spec:
           securityContext:
             privileged: true
             capabilities:
-              add: [ "SYS_ADMIN" ]
+              add: ["SYS_ADMIN"]
             allowPrivilegeEscalation: true
           volumeMounts:
             - name: plugin-dir
@@ -197,7 +226,7 @@ spec:
             - name: device-dir
               mountPath: /dev
             - name: metadata-file
-              mountPath: /etc/init.d/metadata.json
+              mountPath: /etc/init.d
               readOnly: true
         - name: csi-node-driver-registrar
           image: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.0.1
@@ -237,8 +266,8 @@ spec:
             path: /dev
         - name: metadata-file
           hostPath:
-            path: /etc/init.d/metadata.json
-            type: File
+            # TODO: fix issue with Rancher and mount metadata.json only
+            path: /etc/init.d
 
 ---
 apiVersion: v1
@@ -254,9 +283,9 @@ metadata:
   name: xelon-csi-node-driver-registrar-role
   namespace: kube-system
 rules:
-  - apiGroups: [ "" ]
-    resources: [ "events" ]
-    verbs: [ "get", "list", "watch", "create", "update", "patch" ]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
 
 ---
 kind: ClusterRoleBinding
