@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Xelon-AG/xelon-sdk-go/xelon"
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -26,6 +27,9 @@ const (
 const (
 	minVolumeSizeInBytes     int64 = 5 * giB
 	defaultVolumeSizeInBytes int64 = 10 * giB
+
+	volumeStatusCheckRetries  = 20
+	volumeStatusCheckInterval = 6
 )
 
 var (
@@ -125,6 +129,23 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	apiResponse, _, err := d.xelon.PersistentStorages.Create(ctx, d.tenantID, createRequest)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// check to see if volume is in active state
+	volumeReady := false
+	for i := 0; i < volumeStatusCheckRetries; i++ {
+		time.Sleep(volumeStatusCheckInterval * time.Second)
+		storage, _, err := d.xelon.PersistentStorages.Get(ctx, d.tenantID, apiResponse.PersistentStorage.LocalID)
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		if storage.BlockStorage.Status == 1 {
+			volumeReady = true
+			break
+		}
+	}
+	if !volumeReady {
+		return nil, status.Errorf(codes.Internal, "volume is not ready %v seconds", volumeStatusCheckRetries*volumeStatusCheckInterval)
 	}
 
 	resp := &csi.CreateVolumeResponse{
