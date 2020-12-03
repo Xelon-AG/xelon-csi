@@ -25,82 +25,6 @@ provisioner: csi.xelon.ch
 ###########                       ############
 ##############################################
 ---
-kind: StatefulSet
-apiVersion: apps/v1
-metadata:
-  name: xelon-csi-controller
-  namespace: kube-system
-spec:
-  serviceName: "xelon-csi"
-  replicas: 1
-  selector:
-    matchLabels:
-      app: xelon-csi-controller
-  template:
-    metadata:
-      labels:
-        app: xelon-csi-controller
-        role: xelon-csi
-    spec:
-      priorityClassName: system-cluster-critical
-      serviceAccountName: xelon-csi-controller-sa
-      containers:
-        - name: xelon-csi-plugin
-          image: xelonag/xelon-csi:dev
-          args:
-            - "--api-url=$(XELON_API_URL)"
-            - "--endpoint=$(CSI_ENDPOINT)"
-            - "--mode=controller"
-            - "--token=$(XELON_API_TOKEN)"
-          env:
-            - name: XELON_API_URL
-              value: https://vdcnew.xelon.ch/api/service/
-            - name: CSI_ENDPOINT
-              value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
-            - name: XELON_API_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: xelon
-                  key: token
-          imagePullPolicy: "Always"
-          volumeMounts:
-            - name: socket-dir
-              mountPath: /var/lib/csi/sockets/pluginproxy/
-            - name: metadata-file
-              mountPath: /etc/init.d
-              readOnly: true
-        - name: csi-provisioner
-          image: k8s.gcr.io/sig-storage/csi-provisioner:v2.0.2
-          args:
-            - "--csi-address=$(CSI_ADDRESS)"
-            - "--default-fstype=ext4"
-            - "--v=5"
-          env:
-            - name: CSI_ADDRESS
-              value: /var/lib/csi/sockets/pluginproxy/csi.sock
-          volumeMounts:
-            - name: socket-dir
-              mountPath: /var/lib/csi/sockets/pluginproxy/
-        - name: csi-attacher
-          image: k8s.gcr.io/sig-storage/csi-attacher:v3.0.0
-          args:
-            - "--csi-address=$(CSI_ADDRESS)"
-            - "--v=5"
-          env:
-            - name: CSI_ADDRESS
-              value: /var/lib/csi/sockets/pluginproxy/csi.sock
-          volumeMounts:
-            - name: socket-dir
-              mountPath: /var/lib/csi/sockets/pluginproxy/
-      volumes:
-        - name: socket-dir
-          emptyDir: {}
-        - name: metadata-file
-          hostPath:
-            # TODO: fix issue with Rancher and mount metadata.json only
-            path: /etc/init.d
-
----
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -178,6 +102,82 @@ roleRef:
   name: xelon-csi-attacher-role
   apiGroup: rbac.authorization.k8s.io
 
+---
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: xelon-csi-controller
+  namespace: kube-system
+spec:
+  serviceName: "xelon-csi"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: xelon-csi-controller
+  template:
+    metadata:
+      labels:
+        app: xelon-csi-controller
+        role: xelon-csi
+    spec:
+      priorityClassName: system-cluster-critical
+      serviceAccountName: xelon-csi-controller-sa
+      containers:
+        - name: xelon-csi-plugin
+          image: xelonag/xelon-csi:dev
+          args:
+            - "--api-url=$(XELON_API_URL)"
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--mode=controller"
+            - "--token=$(XELON_API_TOKEN)"
+          env:
+            - name: XELON_API_URL
+              value: https://vdcnew.xelon.ch/api/service/
+            - name: CSI_ENDPOINT
+              value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
+            - name: XELON_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: xelon
+                  key: token
+          imagePullPolicy: "Always"
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/csi/sockets/pluginproxy/
+            - name: metadata-file
+              mountPath: /etc/init.d
+              readOnly: true
+        - name: csi-provisioner
+          image: k8s.gcr.io/sig-storage/csi-provisioner:v2.0.2
+          args:
+            - "--csi-address=$(CSI_ADDRESS)"
+            - "--default-fstype=ext4"
+            - "--v=5"
+          env:
+            - name: CSI_ADDRESS
+              value: /var/lib/csi/sockets/pluginproxy/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/csi/sockets/pluginproxy/
+        - name: csi-attacher
+          image: k8s.gcr.io/sig-storage/csi-attacher:v3.0.0
+          args:
+            - "--csi-address=$(CSI_ADDRESS)"
+            - "--v=5"
+          env:
+            - name: CSI_ADDRESS
+              value: /var/lib/csi/sockets/pluginproxy/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/csi/sockets/pluginproxy/
+      volumes:
+        - name: socket-dir
+          emptyDir: {}
+        - name: metadata-file
+          hostPath:
+            # TODO: fix issue with Rancher and mount metadata.json only
+            path: /etc/init.d
+
 
 ---
 ########################################
@@ -185,6 +185,38 @@ roleRef:
 ###########   Node plugin   ############
 ###########                 ############
 ########################################
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: xelon-csi-node-sa
+  namespace: kube-system
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: xelon-csi-node-driver-registrar-role
+  namespace: kube-system
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: xelon-csi-node-driver-registrar-binding
+subjects:
+  - kind: ServiceAccount
+    name: xelon-csi-node-sa
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: xelon-csi-node-driver-registrar-role
+  apiGroup: rbac.authorization.k8s.io
+
 ---
 kind: DaemonSet
 apiVersion: apps/v1
@@ -268,35 +300,3 @@ spec:
           hostPath:
             # TODO: fix issue with Rancher and mount metadata.json only
             path: /etc/init.d
-
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: xelon-csi-node-sa
-  namespace: kube-system
-
----
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: xelon-csi-node-driver-registrar-role
-  namespace: kube-system
-rules:
-  - apiGroups: [""]
-    resources: ["events"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
-
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: xelon-csi-node-driver-registrar-binding
-subjects:
-  - kind: ServiceAccount
-    name: xelon-csi-node-sa
-    namespace: kube-system
-roleRef:
-  kind: ClusterRole
-  name: xelon-csi-node-driver-registrar-role
-  apiGroup: rbac.authorization.k8s.io
