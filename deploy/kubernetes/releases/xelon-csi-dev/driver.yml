@@ -136,10 +136,7 @@ spec:
             - name: CSI_ENDPOINT
               value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
             - name: XELON_API_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: xelon
-                  key: token
+              value: "XELON_TOKEN"
           imagePullPolicy: "Always"
           volumeMounts:
             - name: socket-dir
