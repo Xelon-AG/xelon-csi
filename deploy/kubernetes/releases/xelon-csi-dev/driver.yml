@@ -1,7 +1,6 @@
 #
 # This file is only for development use. Do not use in production.
 #
-
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -90,7 +89,6 @@ provisioner: csi.xelon.ch
 ###########   Controller plugin   ############
 ###########                       ############
 ##############################################
-
 ---
 kind: StatefulSet
 apiVersion: apps/v1
@@ -171,7 +169,6 @@ spec:
 ###########   Node plugin   ############
 ###########                 ############
 ########################################
-
 ---
 kind: DaemonSet
 apiVersion: apps/v1
