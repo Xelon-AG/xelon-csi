@@ -39,15 +39,13 @@ var (
 		csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
 	}
 
-	xelonStorageLocalID = DefaultDriverName + "/storage-id"
-	xelonStorageName    = DefaultDriverName + "/storage-name"
+	xelonStorageUUID = DefaultDriverName + "/storage-uuid"
+	xelonStorageName = DefaultDriverName + "/storage-name"
 )
 
 type controllerService struct {
 	xelon    *xelon.Client
 	tenantID string
-
-	// mux sync.Mutex
 }
 
 func (d *Driver) initializeControllerService() error {
@@ -131,23 +129,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	// check to see if volume is in active state
-	volumeReady := false
-	for i := 0; i < volumeStatusCheckRetries; i++ {
-		time.Sleep(volumeStatusCheckInterval * time.Second)
-		storage, _, err := d.xelon.PersistentStorages.Get(ctx, d.tenantID, apiResponse.PersistentStorage.LocalID)
-		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-		if storage.BlockStorage.Status == 1 {
-			volumeReady = true
-			break
-		}
-	}
-	if !volumeReady {
-		return nil, status.Errorf(codes.Internal, "volume is not ready %v seconds", volumeStatusCheckRetries*volumeStatusCheckInterval)
-	}
-
 	resp := &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:      apiResponse.PersistentStorage.LocalID,
@@ -182,7 +163,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 		return nil, err
 	}
 
-	log.WithField("response", resp).Info("volume was deleted")
+	log.Info("volume was deleted")
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
@@ -214,6 +195,22 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 		return nil, err
 	}
 
+	volumeReady := false
+	for i := 0; i < volumeStatusCheckRetries; i++ {
+		time.Sleep(volumeStatusCheckInterval * time.Second)
+		storage, _, err := d.xelon.PersistentStorages.Get(ctx, d.tenantID, storage.LocalID)
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		if storage.UUID != "" && storage.BlockStorage.Status == 1 {
+			volumeReady = true
+			break
+		}
+	}
+	if !volumeReady {
+		return nil, status.Errorf(codes.Internal, "volume is not ready %v seconds", volumeStatusCheckRetries*volumeStatusCheckInterval)
+	}
+
 	// check if device exist before attaching to it
 	_, resp, err = d.xelon.Devices.Get(ctx, d.tenantID, req.NodeId)
 	if err != nil {
@@ -234,8 +231,8 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 	log.Info("volume was attached")
 	return &csi.ControllerPublishVolumeResponse{
 		PublishContext: map[string]string{
-			xelonStorageLocalID: storage.LocalID,
-			xelonStorageName:    storage.Name,
+			xelonStorageUUID: storage.UUID,
+			xelonStorageName: storage.Name,
 		},
 	}, nil
 }
