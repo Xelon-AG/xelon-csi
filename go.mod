@@ -3,7 +3,7 @@ module github.com/Xelon-AG/xelon-csi
 go 1.15
 
 require (
-	github.com/Xelon-AG/xelon-sdk-go v0.2.3-0.20201202030025-60284e4f4448
+	github.com/Xelon-AG/xelon-sdk-go v0.3.1-0.20201220162020-721c4255faec
 	github.com/container-storage-interface/spec v1.3.0
 	github.com/golang/protobuf v1.4.2
 	github.com/sirupsen/logrus v1.7.0
