@@ -65,11 +65,11 @@ func NewDriver(config *Config, log *logrus.Entry) (*Driver, error) {
 			return nil, err
 		}
 	case NodeMode:
-		nodeService, err := newNodeService(config)
+		err := d.newNodeService(config)
 		if err != nil {
 			d.log.Errorf("couldn't initialize Xelon node service, %s", err)
+			return nil, err
 		}
-		d.nodeService = nodeService
 	case AllMode:
 		err := d.initializeControllerService()
 		if err != nil {
@@ -77,11 +77,11 @@ func NewDriver(config *Config, log *logrus.Entry) (*Driver, error) {
 			return nil, err
 		}
 
-		nodeService, err := newNodeService(config)
+		err = d.newNodeService(config)
 		if err != nil {
 			d.log.Errorf("couldn't initialize Xelon node service, %s", err)
+			return nil, err
 		}
-		d.nodeService = nodeService
 	default:
 		return nil, fmt.Errorf("unknown mode for driver: %s", config.Mode)
 	}

@@ -9,4 +9,6 @@ var (
 
 	// errRemovingExistingSocket is returned when the driver could not delete an existing unix socket.
 	errRemovingExistingSocket = errors.New("error removing existing socket")
+
+	errDevicePathIsNotDevice = errors.New("device path does not point on a block device")
 )
