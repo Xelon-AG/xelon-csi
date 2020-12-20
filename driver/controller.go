@@ -28,8 +28,8 @@ const (
 	minVolumeSizeInBytes     int64 = 5 * giB
 	defaultVolumeSizeInBytes int64 = 10 * giB
 
-	volumeStatusCheckRetries  = 20
-	volumeStatusCheckInterval = 6
+	volumeStatusCheckRetries  = 30
+	volumeStatusCheckInterval = 10
 )
 
 var (
@@ -106,13 +106,19 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	for _, storage := range storages {
 		if storage.Name == volumeName {
 
-			log.Info("volume already created")
-			return &csi.CreateVolumeResponse{
-				Volume: &csi.Volume{
-					VolumeId:      storage.LocalID,
-					CapacityBytes: int64(storage.Capacity * giB),
-				},
-			}, nil
+			// storage was created if 'uuid' is not empty and 'formatted' is 1, otherwise create is in progress state
+			if storage.UUID != "" && storage.Formatted == 1 {
+				log.Info("volume already created")
+				return &csi.CreateVolumeResponse{
+					Volume: &csi.Volume{
+						VolumeId:      storage.LocalID,
+						CapacityBytes: int64(storage.Capacity * giB),
+					},
+				}, nil
+			} else {
+				log.WithField("volume_id", storage.LocalID).Info("volume is creating")
+				return nil, status.Errorf(codes.Aborted, "Volume %s is creating", storage.LocalID)
+			}
 		}
 	}
 
@@ -127,6 +133,22 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	apiResponse, _, err := d.xelon.PersistentStorages.Create(ctx, d.tenantID, createRequest)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	volumeReady := false
+	for i := 0; i < volumeStatusCheckRetries; i++ {
+		time.Sleep(volumeStatusCheckInterval * time.Second)
+		storage, _, err := d.xelon.PersistentStorages.Get(ctx, d.tenantID, apiResponse.PersistentStorage.LocalID)
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		if storage.UUID != "" && storage.Formatted == 1 {
+			volumeReady = true
+			break
+		}
+	}
+	if !volumeReady {
+		return nil, status.Errorf(codes.Internal, "volume is not ready %v seconds", volumeStatusCheckRetries*volumeStatusCheckInterval)
 	}
 
 	resp := &csi.CreateVolumeResponse{
@@ -193,22 +215,6 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 			return nil, status.Errorf(codes.NotFound, "volume %q doesn't exist", req.VolumeId)
 		}
 		return nil, err
-	}
-
-	volumeReady := false
-	for i := 0; i < volumeStatusCheckRetries; i++ {
-		time.Sleep(volumeStatusCheckInterval * time.Second)
-		storage, _, err := d.xelon.PersistentStorages.Get(ctx, d.tenantID, storage.LocalID)
-		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-		if storage.UUID != "" && storage.BlockStorage.Status == 1 {
-			volumeReady = true
-			break
-		}
-	}
-	if !volumeReady {
-		return nil, status.Errorf(codes.Internal, "volume is not ready %v seconds", volumeStatusCheckRetries*volumeStatusCheckInterval)
 	}
 
 	// check if device exist before attaching to it
