@@ -16,8 +16,8 @@ func (d *Driver) GetPluginInfo(_ context.Context, _ *csi.GetPluginInfoRequest) (
 
 	d.log.WithFields(logrus.Fields{
 		"response": resp,
-		"method":   "GetPluginInfo",
-	}).Info("GetPluginInfo called")
+		"method":   "get_plugin_info",
+	}).Info("get plugin info called")
 
 	return resp, nil
 }
@@ -37,8 +37,8 @@ func (d *Driver) GetPluginCapabilities(_ context.Context, _ *csi.GetPluginCapabi
 
 	d.log.WithFields(logrus.Fields{
 		"response": resp,
-		"method":   "GetPluginCapabilities",
-	}).Info("GetPluginCapabilities called")
+		"method":   "get_plugin_capabilities",
+	}).Info("get plugin capabilities called")
 
 	return resp, nil
 }
@@ -46,8 +46,8 @@ func (d *Driver) GetPluginCapabilities(_ context.Context, _ *csi.GetPluginCapabi
 // Probe allows to verify that the plugin is in a healthy and ready state
 func (d *Driver) Probe(_ context.Context, _ *csi.ProbeRequest) (*csi.ProbeResponse, error) {
 	d.log.WithFields(logrus.Fields{
-		"method": "Probe",
-	}).Info("Probe called")
+		"method": "probe",
+	}).Info("probe called")
 
 	return &csi.ProbeResponse{
 		Ready: &wrappers.BoolValue{
