@@ -30,7 +30,7 @@ func (d *Driver) newNodeService(config *Config) error {
 		return err
 	}
 
-	d.log.Debugf("Node ID: %s", localVMID)
+	d.log.Infof("Node ID: %s", localVMID)
 
 	d.nodeService = &nodeService{
 		mounter: helper.NewMounter(d.log),

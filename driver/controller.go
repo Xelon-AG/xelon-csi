@@ -62,7 +62,7 @@ func (d *Driver) initializeControllerService() error {
 		return err
 	}
 
-	d.log.Debugf("Tenant ID: %s", tenant.TenantID)
+	d.log.Infof("Tenant ID: %s", tenant.TenantID)
 
 	d.controllerService = &controllerService{
 		xelon:    client,
