@@ -144,7 +144,7 @@ spec:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
         - name: csi-attacher
-          image: k8s.gcr.io/sig-storage/csi-attacher:v3.0.0
+          image:  quay.io/k8scsi/csi-attacher:v2.2.0
           args:
             - "--csi-address=$(CSI_ADDRESS)"
             - "--v=5"
