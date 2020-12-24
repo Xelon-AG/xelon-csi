@@ -2,71 +2,6 @@
 # This file is only for development use. Do not use in production.
 #
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: xelon-csi-node-sa
-  namespace: kube-system
-
----
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: xelon-csi-node-driver-registrar-role
-  namespace: kube-system
-rules:
-  - apiGroups: [""]
-    resources: ["events"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
-
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: xelon-csi-node-driver-registrar-binding
-subjects:
-  - kind: ServiceAccount
-    name: xelon-csi-node-sa
-    namespace: kube-system
-roleRef:
-  kind: ClusterRole
-  name: xelon-csi-node-driver-registrar-role
-  apiGroup: rbac.authorization.k8s.io
-
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: xelon-csi-controller-sa
-  namespace: kube-system
-
----
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: xelon-csi-controller-sa-driver-registrar-role
-  namespace: kube-system
-rules:
-  - apiGroups: [""]
-    resources: ["events"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
-
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: xelon-csi-controller-sa-driver-registrar-binding
-subjects:
-  - kind: ServiceAccount
-    name: xelon-csi-node-sa
-    namespace: kube-system
-roleRef:
-  kind: ClusterRole
-  name: xelon-csi-node-driver-registrar-role
-  apiGroup: rbac.authorization.k8s.io
-
-
----
 apiVersion: storage.k8s.io/v1beta1
 kind: CSIDriver
 metadata:
@@ -84,6 +19,121 @@ metadata:
 provisioner: csi.xelon.ch
 
 ---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: xelon-csi-controller-sa
+  namespace: kube-system
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: xelon-csi-provisioner-role
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "update"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["list", "watch", "create", "update", "patch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csinodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["volumeattachments"]
+    verbs: ["get", "list", "watch"]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: xelon-csi-controller-binding
+subjects:
+  - kind: ServiceAccount
+    name: xelon-csi-controller-sa
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: xelon-csi-provisioner-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: xelon-csi-attacher-role
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csinodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["volumeattachments"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["volumeattachments/status"]
+    verbs: ["patch"]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: xelon-csi-attacher-binding
+subjects:
+  - kind: ServiceAccount
+    name: xelon-csi-controller-sa
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: xelon-csi-attacher-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: xelon-csi-node-sa
+  namespace: kube-system
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: xelon-csi-node-driver-registrar-role
+  namespace: kube-system
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: xelon-csi-node-driver-registrar-binding
+subjects:
+  - kind: ServiceAccount
+    name: xelon-csi-node-sa
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: xelon-csi-node-driver-registrar-role
+  apiGroup: rbac.authorization.k8s.io
+
 ##############################################
 ###########                       ############
 ###########   Controller plugin   ############
@@ -123,7 +173,7 @@ spec:
             - name: CSI_ENDPOINT
               value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
             - name: XELON_API_TOKEN
-              value: "XELON_TOKEN"
+              value: "INSERT_TOKEN_HERE"
           imagePullPolicy: "Always"
           volumeMounts:
             - name: socket-dir
@@ -144,7 +194,7 @@ spec:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
         - name: csi-attacher
-          image:  quay.io/k8scsi/csi-attacher:v2.2.0
+          image: quay.io/k8scsi/csi-attacher:v2.2.0
           args:
             - "--csi-address=$(CSI_ADDRESS)"
             - "--v=5"
@@ -159,9 +209,7 @@ spec:
           emptyDir: {}
         - name: metadata-file
           hostPath:
-            # TODO: fix issue with Rancher and mount metadata.json only
             path: /etc/init.d
-
 
 ---
 ########################################
@@ -250,5 +298,4 @@ spec:
             path: /dev
         - name: metadata-file
           hostPath:
-            # TODO: fix issue with Rancher and mount metadata.json only
             path: /etc/init.d
