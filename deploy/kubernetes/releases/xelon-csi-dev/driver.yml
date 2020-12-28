@@ -169,7 +169,7 @@ spec:
             - "--token=$(XELON_API_TOKEN)"
           env:
             - name: XELON_API_URL
-              value: https://vdcnew.xelon.ch/api/service/
+              value: "INSERT_API_URL_HERE"
             - name: CSI_ENDPOINT
               value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
             - name: XELON_API_TOKEN
