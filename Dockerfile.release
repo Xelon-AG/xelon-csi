@@ -8,6 +8,6 @@ RUN apk add --no-cache ca-certificates \
                        xfsprogs \
     && rm -rf /var/cache/apk/*
 
-ADD build/xelon-csi /bin/
+ADD xelon-csi /bin/
 
 ENTRYPOINT ["/bin/xelon-csi"]
