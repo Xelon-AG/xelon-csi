@@ -44,10 +44,9 @@ dockers:
     image_templates:
       - "xelonag/xelon-csi:latest"
       - "xelonag/xelon-csi:{{ .Tag }}"
-    skip_push: true
 
 env:
   - CGO_ENABLED=0
 
 release:
-  draft: true
+  draft: false
