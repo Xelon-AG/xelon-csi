@@ -98,26 +98,41 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	})
 	log.Info("create volume called")
 
-	storages, _, err := d.xelon.PersistentStorages.List(ctx, d.tenantID)
-	if err != nil {
+	storage, response, err := d.xelon.PersistentStorages.GetByName(ctx, d.tenantID, volumeName)
+	if err != nil && response != nil && response.StatusCode != http.StatusNotFound {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+	if storage != nil {
+		log.Info("volume already created")
+		return &csi.CreateVolumeResponse{
+			Volume: &csi.Volume{
+				VolumeId:      storage.LocalID,
+				CapacityBytes: int64(storage.Capacity * giB),
+			},
+		}, nil
+	} else {
+		// fallback option to query all storages
+		storages, _, err := d.xelon.PersistentStorages.List(ctx, d.tenantID)
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
 
-	for _, storage := range storages {
-		if storage.Name == volumeName {
+		for _, storage := range storages {
+			if storage.Name == volumeName {
 
-			// storage was created if 'uuid' is not empty and 'formatted' is 1, otherwise create is in progress state
-			if storage.UUID != "" && storage.Formatted == 1 {
-				log.Info("volume already created")
-				return &csi.CreateVolumeResponse{
-					Volume: &csi.Volume{
-						VolumeId:      storage.LocalID,
-						CapacityBytes: int64(storage.Capacity * giB),
-					},
-				}, nil
-			} else {
-				log.WithField("volume_id", storage.LocalID).Info("volume is creating")
-				return nil, status.Errorf(codes.Aborted, "Volume %s is creating", storage.LocalID)
+				// storage was created if 'uuid' is not empty and 'formatted' is 1, otherwise create is in progress state
+				if storage.UUID != "" && storage.Formatted == 1 {
+					log.Info("volume already created")
+					return &csi.CreateVolumeResponse{
+						Volume: &csi.Volume{
+							VolumeId:      storage.LocalID,
+							CapacityBytes: int64(storage.Capacity * giB),
+						},
+					}, nil
+				} else {
+					log.WithField("volume_id", storage.LocalID).Info("volume is creating")
+					return nil, status.Errorf(codes.Aborted, "Volume %s is creating", storage.LocalID)
+				}
 			}
 		}
 	}
