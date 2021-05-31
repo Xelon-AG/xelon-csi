@@ -1,0 +1,13 @@
+FROM alpine:3.12
+
+RUN apk add --no-cache ca-certificates \
+                       blkid \
+                       e2fsprogs \
+                       e2fsprogs-extra \
+                       findmnt \
+                       xfsprogs \
+    && rm -rf /var/cache/apk/*
+
+ADD build/xelon-csi /bin/
+
+ENTRYPOINT ["/bin/xelon-csi"]
