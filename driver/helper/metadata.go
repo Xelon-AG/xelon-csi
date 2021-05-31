@@ -8,13 +8,14 @@ import (
 type deviceInfo struct {
 	Metadata struct {
 		LocalVMID string `json:"local_id"`
+		Hostname  string `json:"hostname"`
 	} `json:"metadata"`
 }
 
-func GetDeviceLocalVMID(metadataFile string) (string, error) {
+func getDeviceInfo(metadataFile string) (*deviceInfo, error) {
 	f, err := os.Open(metadataFile)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer func() {
 		_ = f.Close()
@@ -23,5 +24,21 @@ func GetDeviceLocalVMID(metadataFile string) (string, error) {
 	var deviceInfo deviceInfo
 	parser := json.NewDecoder(f)
 	err = parser.Decode(&deviceInfo)
-	return deviceInfo.Metadata.LocalVMID, err
+	return &deviceInfo, nil
+}
+
+func GetDeviceLocalVMID(metadataFile string) (string, error) {
+	deviceInfo, err := getDeviceInfo(metadataFile)
+	if err != nil {
+		return "", err
+	}
+	return deviceInfo.Metadata.LocalVMID, nil
+}
+
+func GetDeviceHostname(metadataFile string) (string, error) {
+	deviceInfo, err := getDeviceInfo(metadataFile)
+	if err != nil {
+		return "", err
+	}
+	return deviceInfo.Metadata.Hostname, nil
 }

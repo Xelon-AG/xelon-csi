@@ -233,12 +233,18 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 	}
 
 	// check if device exist before attaching to it
-	_, resp, err = d.xelon.Devices.Get(ctx, d.tenantID, req.NodeId)
+	nodeName := "unknown"
+	device, resp, err := d.xelon.Devices.Get(ctx, d.tenantID, req.NodeId)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			return nil, status.Errorf(codes.NotFound, "device %q doesn't exist", req.NodeId)
 		}
 		return nil, err
+	}
+	if device != nil {
+		nodeName = device.Device.LocalVMDetails.VMDisplayName
+	} else {
+		log.Warn("node name could not be obtained because device is nil")
 	}
 
 	attachRequest := &xelon.PersistentStorageAttachDetachRequest{
@@ -249,7 +255,10 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	log.Info("volume was attached")
+	log.WithFields(logrus.Fields{
+		"node_name": nodeName,
+	}).Info("volume was attached")
+
 	return &csi.ControllerPublishVolumeResponse{
 		PublishContext: map[string]string{
 			xelonStorageUUID: storage.UUID,
@@ -285,13 +294,19 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 	}
 
 	// check if device exist before attaching to it
-	_, resp, err = d.xelon.Devices.Get(ctx, d.tenantID, req.NodeId)
+	nodeName := "unknown"
+	device, resp, err := d.xelon.Devices.Get(ctx, d.tenantID, req.NodeId)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			log.Info("storage cannot be detached from deleted devices")
 			return &csi.ControllerUnpublishVolumeResponse{}, nil
 		}
 		return nil, err
+	}
+	if device != nil {
+		nodeName = device.Device.LocalVMDetails.VMDisplayName
+	} else {
+		log.Warn("node name could not be obtained because device is nil")
 	}
 
 	detachRequest := &xelon.PersistentStorageAttachDetachRequest{
@@ -309,7 +324,9 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 		return nil, err
 	}
 
-	log.Info("volume was detached")
+	log.WithFields(logrus.Fields{
+		"node_name": nodeName,
+	}).Info("volume was detached")
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
