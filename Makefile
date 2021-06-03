@@ -62,14 +62,14 @@ build:
 
 ## build-docker: Build docker image with included binary.
 .PHONE: build-docker
-build-docker: build
+build-docker-dev: build
 	@echo "==> Building docker image $(IMAGE_NAME)..."
-	@docker build -t $(IMAGE_NAME) .
+	@docker build -t $(IMAGE_NAME) -f Dockerfile.dev .
 
 
 ## release-docker-dev: Release development docker image.
 .PHONE: release-docker-dev
-release-docker-dev: build-docker
+release-docker-dev: build-docker-dev
 	@echo "==> Releasing development docker image $(IMAGE_NAME):dev..."
 	@docker image tag $(IMAGE_NAME) $(IMAGE_NAME):dev
 	@docker push $(IMAGE_NAME):dev

@@ -19,7 +19,8 @@ const diskUUIDPath = "/dev/disk/by-uuid"
 type nodeService struct {
 	mounter helper.Mounter
 
-	nodeID string
+	nodeID   string
+	nodeName string
 }
 
 func (d *Driver) newNodeService(config *Config) error {
@@ -29,12 +30,17 @@ func (d *Driver) newNodeService(config *Config) error {
 	if err != nil {
 		return err
 	}
+	hostname, err := helper.GetDeviceHostname(config.MetadataFile)
+	if err != nil {
+		return err
+	}
 
-	d.log.Infof("Node ID: %s", localVMID)
+	d.log.Infof("Node Name: %s, ID: %s", hostname, localVMID)
 
 	d.nodeService = &nodeService{
-		mounter: helper.NewMounter(d.log),
-		nodeID:  localVMID,
+		mounter:  helper.NewMounter(d.log),
+		nodeID:   localVMID,
+		nodeName: hostname,
 	}
 
 	return nil
@@ -57,6 +63,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 
 	log := d.log.WithFields(logrus.Fields{
 		"method":              "node_stage_volume",
+		"node_name":           d.nodeName,
 		"staging_target_path": req.StagingTargetPath,
 		"volume_id":           req.VolumeId,
 	})
@@ -131,6 +138,7 @@ func (d *Driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolu
 
 	log := d.log.WithFields(logrus.Fields{
 		"method":              "node_unstage_volume",
+		"node_name":           d.nodeName,
 		"staging_target_path": req.StagingTargetPath,
 		"volume_id":           req.VolumeId,
 	})
@@ -264,7 +272,10 @@ func (d *Driver) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabi
 // NodeGetInfo returns the supported capabilities of the node server. The result of this
 // function will be used by the CO in ControllerPublishVolume.
 func (d *Driver) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
-	d.log.WithField("method", "node_get_info").Info("node get info called")
+	d.log.WithFields(logrus.Fields{
+		"node_name": d.nodeName,
+		"method":    "node_get_info",
+	}).Info("node get info called")
 	return &csi.NodeGetInfoResponse{
 		NodeId:            d.nodeService.nodeID,
 		MaxVolumesPerNode: 15,
