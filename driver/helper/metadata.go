@@ -24,6 +24,9 @@ func getDeviceInfo(metadataFile string) (*deviceInfo, error) {
 	var deviceInfo deviceInfo
 	parser := json.NewDecoder(f)
 	err = parser.Decode(&deviceInfo)
+	if err != nil {
+		return nil, err
+	}
 	return &deviceInfo, nil
 }
 
