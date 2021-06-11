@@ -103,13 +103,18 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	if storage != nil {
-		log.Info("volume already created")
-		return &csi.CreateVolumeResponse{
-			Volume: &csi.Volume{
-				VolumeId:      storage.LocalID,
-				CapacityBytes: int64(storage.Capacity * giB),
-			},
-		}, nil
+		if storage.UUID != "" && storage.Formatted == 1 {
+			log.Info("volume already created")
+			return &csi.CreateVolumeResponse{
+				Volume: &csi.Volume{
+					VolumeId:      storage.LocalID,
+					CapacityBytes: int64(storage.Capacity * giB),
+				},
+			}, nil
+		} else {
+			log.WithField("volume_id", storage.LocalID).Info("volume is creating")
+			return nil, status.Errorf(codes.Aborted, "Volume %s is creating", storage.LocalID)
+		}
 	} else {
 		// fallback option to query all storages
 		storages, _, err := d.xelon.PersistentStorages.List(ctx, d.tenantID)
