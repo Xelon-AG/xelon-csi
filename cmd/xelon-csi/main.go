@@ -76,8 +76,15 @@ func initializeLogging(logLevel, mode, metadataFile string) *logrus.Entry {
 		localVMID = "unknown"
 	}
 
+	cloudID, err := helper.GetDeviceCloudID(metadataFile)
+	if err != nil {
+		log.Printf("Couldn't get cloudID from Xelon device (use 1 as default), %v\n", err)
+		cloudID = "1"
+	}
+
 	return logger.WithFields(logrus.Fields{
 		"component": driver.DefaultDriverName,
+		"cloud_id":  cloudID,
 		"device":    localVMID,
 		"service":   mode,
 		"version":   driver.GetVersion().DriverVersion,
