@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Xelon-AG/xelon-csi/driver/helper"
 	"github.com/Xelon-AG/xelon-sdk-go/xelon"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
@@ -45,10 +46,11 @@ var (
 
 type controllerService struct {
 	xelon    *xelon.Client
+	cloudID  string
 	tenantID string
 }
 
-func (d *Driver) initializeControllerService() error {
+func (d *Driver) initializeControllerService(config *Config) error {
 	d.log.Info("Initializing Xelon controller service")
 
 	userAgent := fmt.Sprintf("%s/%s (%s)", DefaultDriverName, driverVersion, gitCommit)
@@ -64,8 +66,14 @@ func (d *Driver) initializeControllerService() error {
 
 	d.log.Infof("Tenant ID: %s", tenant.TenantID)
 
+	cloudID, err := helper.GetDeviceCloudID(config.MetadataFile)
+	if err != nil {
+		return err
+	}
+
 	d.controllerService = &controllerService{
 		xelon:    client,
+		cloudID:  cloudID,
 		tenantID: tenant.TenantID,
 	}
 
@@ -147,7 +155,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			Name: volumeName,
 			Type: 2,
 		},
-		Size: int(size / giB),
+		CloudID: d.cloudID,
+		Size:    int(size / giB),
 	}
 	log.WithField("volume_create_request", createRequest).Info("creating volume")
 	apiResponse, _, err := d.xelon.PersistentStorages.Create(ctx, d.tenantID, createRequest)

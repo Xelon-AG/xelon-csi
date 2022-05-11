@@ -59,7 +59,7 @@ func NewDriver(config *Config, log *logrus.Entry) (*Driver, error) {
 
 	switch config.Mode {
 	case ControllerMode:
-		err := d.initializeControllerService()
+		err := d.initializeControllerService(config)
 		if err != nil {
 			d.log.Errorf("couldn't initialize Xelon controller service, %s", err)
 			return nil, err
@@ -71,7 +71,7 @@ func NewDriver(config *Config, log *logrus.Entry) (*Driver, error) {
 			return nil, err
 		}
 	case AllMode:
-		err := d.initializeControllerService()
+		err := d.initializeControllerService(config)
 		if err != nil {
 			d.log.Errorf("couldn't initialize Xelon controller service, %s", err)
 			return nil, err

@@ -7,6 +7,7 @@ import (
 
 type deviceInfo struct {
 	Metadata struct {
+		CloudID   string `json:"cloudId"`
 		LocalVMID string `json:"local_id"`
 		Hostname  string `json:"hostname"`
 	} `json:"metadata"`
@@ -28,6 +29,14 @@ func getDeviceInfo(metadataFile string) (*deviceInfo, error) {
 		return nil, err
 	}
 	return &deviceInfo, nil
+}
+
+func GetDeviceCloudID(metadataFile string) (string, error) {
+	deviceInfo, err := getDeviceInfo(metadataFile)
+	if err != nil {
+		return "", err
+	}
+	return deviceInfo.Metadata.CloudID, nil
 }
 
 func GetDeviceLocalVMID(metadataFile string) (string, error) {
