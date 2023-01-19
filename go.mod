@@ -9,13 +9,17 @@ require (
 	github.com/sirupsen/logrus v1.7.0
 	google.golang.org/grpc v1.29.1
 	k8s.io/klog v1.0.0
+	k8s.io/mount-utils v0.23.7
+	k8s.io/utils v0.0.0-20221107191617-1a15be271d1d
 )
 
 require (
+	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	golang.org/x/net v0.0.0-20190311183353-d8887717615a // indirect
-	golang.org/x/sys v0.0.0-20191026070338-33540a1f6037 // indirect
+	golang.org/x/sys v0.3.0 // indirect
 	golang.org/x/text v0.3.0 // indirect
 	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55 // indirect
 	google.golang.org/protobuf v1.23.0 // indirect
+	k8s.io/klog/v2 v2.80.1 // indirect
 )
