@@ -56,11 +56,11 @@ func (d *Driver) initializeControllerService(config *Config) error {
 
 	userAgent := fmt.Sprintf("%s/%s (%s)", DefaultDriverName, driverVersion, gitCommit)
 
-	client := xelon.NewClient(d.config.Token)
-	client.SetBaseURL(d.config.BaseURL)
-	client.SetUserAgent(userAgent)
+	opts := []xelon.ClientOption{xelon.WithUserAgent(userAgent)}
+	opts = append(opts, xelon.WithBaseURL(d.config.BaseURL))
+	client := xelon.NewClient(d.config.Token, opts...)
 
-	tenant, _, err := client.Tenant.Get(context.Background())
+	tenant, _, err := client.Tenants.GetCurrent(context.Background())
 	if err != nil {
 		return err
 	}
@@ -400,9 +400,9 @@ func (d *Driver) ListSnapshots(_ context.Context, _ *csi.ListSnapshotsRequest) (
 
 // ControllerExpandVolume is called from the resizer to increase the volume size.
 func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
-	volID := req.GetVolumeId()
+	volumeID := req.GetVolumeId()
 
-	if volID == "" {
+	if volumeID == "" {
 		return nil, status.Error(codes.InvalidArgument, "ControllerExpandVolume volume ID missing in request")
 	}
 
@@ -419,7 +419,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	log := d.log.WithFields(logrus.Fields{
 		"method":                 "expand_volume",
 		"storage_size_gigabytes": resizeBytes / giB,
-		"volume_id":              volID,
+		"volume_id":              volumeID,
 	})
 	log.Info("expand volume called")
 
@@ -435,7 +435,30 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		}, nil
 	}
 
-	// expand via xelon api here
+	extendRequest := &xelon.PersistentStorageExtendRequest{
+		Size: int(resizeBytes / giB),
+	}
+	log.WithField("volume_extend_request", extendRequest).Info("extending volume")
+	apiResponse, _, err := d.xelon.PersistentStorages.Extend(ctx, volumeID, extendRequest)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "could not extend volume: %v: %v", apiResponse, err)
+	}
+
+	volumeReady := false
+	for i := 0; i < volumeStatusCheckRetries; i++ {
+		time.Sleep(volumeStatusCheckInterval * time.Second)
+		storage, _, err := d.xelon.PersistentStorages.Get(ctx, d.tenantID, volumeID)
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		if storage.UUID != "" && storage.Formatted == 1 {
+			volumeReady = true
+			break
+		}
+	}
+	if !volumeReady {
+		return nil, status.Errorf(codes.Internal, "volume is not ready %v seconds", volumeStatusCheckRetries*volumeStatusCheckInterval)
+	}
 
 	log.WithField("new_volume_size", resizeBytes)
 	log.Info("volume was resized")
