@@ -38,6 +38,7 @@ var (
 	controllerCapabilities = []csi.ControllerServiceCapability_RPC_Type{
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 		csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
+		csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 	}
 
 	xelonStorageUUID = DefaultDriverName + "/storage-uuid"
@@ -344,7 +345,7 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
-func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
+func (d *Driver) ValidateVolumeCapabilities(_ context.Context, _ *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
 	klog.V(4).Infof("ValidateVolumeCapabilities is not yet implemented")
 	return nil, status.Error(codes.Unimplemented, "ValidateVolumeCapabilities is not yet implemented")
 }
@@ -379,32 +380,74 @@ func (d *Driver) ControllerGetCapabilities(_ context.Context, req *csi.Controlle
 
 // CreateSnapshot will be called by the CO to create a new snapshot from a
 // source volume on behalf of a user.
-func (d *Driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
+func (d *Driver) CreateSnapshot(_ context.Context, _ *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
 	klog.V(4).Infof("CreateSnapshot is not yet implemented")
 	return nil, status.Error(codes.Unimplemented, "CreateSnapshot is not yet implemented")
 }
 
 // DeleteSnapshot will be called by the CO to delete a snapshot.
-func (d *Driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
+func (d *Driver) DeleteSnapshot(_ context.Context, _ *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
 	klog.V(4).Infof("DeleteSnapshot is not yet implemented")
 	return nil, status.Error(codes.Unimplemented, "DeleteSnapshot is not yet implemented")
 }
 
 // ListSnapshots returns the information about all snapshots on the storage
 // system within the given parameters regardless of how they were created.
-func (d *Driver) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
+func (d *Driver) ListSnapshots(_ context.Context, _ *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
 	klog.V(4).Infof("ListSnapshots is not yet implemented")
 	return nil, status.Error(codes.Unimplemented, "ListSnapshots is not yet implemented")
 }
 
 // ControllerExpandVolume is called from the resizer to increase the volume size.
 func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
-	klog.V(4).Infof("ControllerExpandVolume is not yet implemented")
-	return nil, status.Error(codes.Unimplemented, "ControllerExpandVolume is not yet implemented")
+	volID := req.GetVolumeId()
+
+	if volID == "" {
+		return nil, status.Error(codes.InvalidArgument, "ControllerExpandVolume volume ID missing in request")
+	}
+
+	storage, _, err := d.xelon.PersistentStorages.Get(ctx, d.tenantID, req.VolumeId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "ControllerExpandVolume could not retrieve existing volume: %v", err)
+	}
+
+	resizeBytes, err := extractStorage(req.GetCapacityRange())
+	if err != nil {
+		return nil, status.Errorf(codes.OutOfRange, "ControllerExpandVolume invalid capacity range: %v", err)
+	}
+
+	log := d.log.WithFields(logrus.Fields{
+		"method":                 "expand_volume",
+		"storage_size_gigabytes": resizeBytes / giB,
+		"volume_id":              volID,
+	})
+	log.Info("expand volume called")
+
+	if resizeBytes <= int64(storage.Capacity*giB) {
+		log.WithFields(logrus.Fields{
+			"current_volume_size":   int64(storage.Capacity * giB),
+			"requested_volume_size": resizeBytes,
+		}).Info("skipping volume resize because current volume size exceeds requested volume size")
+
+		return &csi.ControllerExpandVolumeResponse{
+			CapacityBytes:         int64(storage.Capacity * giB),
+			NodeExpansionRequired: true,
+		}, nil
+	}
+
+	// expand via xelon api here
+
+	log.WithField("new_volume_size", resizeBytes)
+	log.Info("volume was resized")
+
+	return &csi.ControllerExpandVolumeResponse{
+		CapacityBytes:         resizeBytes,
+		NodeExpansionRequired: true,
+	}, nil
 }
 
 // ControllerGetVolume gets a specific volume.
-func (d *Driver) ControllerGetVolume(ctx context.Context, req *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
+func (d *Driver) ControllerGetVolume(_ context.Context, _ *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
 	klog.V(4).Infof("ControllerGetVolume is not yet implemented")
 	return nil, status.Error(codes.Unimplemented, "ControllerGetVolume is not yet implemented")
 }
