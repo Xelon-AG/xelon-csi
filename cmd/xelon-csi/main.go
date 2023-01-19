@@ -7,9 +7,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/Xelon-AG/xelon-csi/driver"
 	"github.com/Xelon-AG/xelon-csi/driver/helper"
-	"github.com/sirupsen/logrus"
 )
 
 func main() {
