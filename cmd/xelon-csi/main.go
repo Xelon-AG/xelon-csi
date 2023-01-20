@@ -21,6 +21,7 @@ func main() {
 		mode         = flag.String("mode", string(driver.AllMode), "The mode in which the CSI driver will be run (all, node, controller)")
 		metadataFile = flag.String("metadata-file", "/etc/init.d/metadata.json", "The path to the metadata file on Xelon devices")
 		token        = flag.String("token", "", "Xelon access token")
+		clientID     = flag.String("client-id", "", "Xelon client id for IP ranges")
 		version      = flag.Bool("version", false, "Print the version and exit.")
 	)
 	flag.Parse()
@@ -41,6 +42,7 @@ func main() {
 	d, err := driver.NewDriver(
 		&driver.Config{
 			BaseURL:      *apiURL,
+			ClientID:     *clientID,
 			Endpoint:     *endpoint,
 			Mode:         driver.Mode(*mode),
 			MetadataFile: *metadataFile,

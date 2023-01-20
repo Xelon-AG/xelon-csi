@@ -28,4 +28,4 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Release development Docker image
-        run: make release-docker-dev
+        run: make build release-docker-dev

@@ -59,6 +59,9 @@ func (d *Driver) initializeControllerService(config *Config) error {
 
 	opts := []xelon.ClientOption{xelon.WithUserAgent(userAgent)}
 	opts = append(opts, xelon.WithBaseURL(d.config.BaseURL))
+	if d.config.ClientID != "" {
+		opts = append(opts, xelon.WithClientID(d.config.ClientID))
+	}
 	client := xelon.NewClient(d.config.Token, opts...)
 
 	tenant, _, err := client.Tenants.GetCurrent(context.Background())

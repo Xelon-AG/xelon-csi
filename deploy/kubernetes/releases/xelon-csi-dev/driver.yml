@@ -2,7 +2,7 @@
 # This file is only for development use. Do not use in production.
 #
 ---
-apiVersion: storage.k8s.io/v1beta1
+apiVersion: storage.k8s.io/v1
 kind: CSIDriver
 metadata:
   name: csi.xelon.ch
@@ -164,6 +164,7 @@ spec:
           image: xelonag/xelon-csi:dev
           args:
             - "--api-url=$(XELON_API_URL)"
+            - "--client-id=$(XELON_API_CLIENT_ID)"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--mode=controller"
             - "--token=$(XELON_API_TOKEN)"
@@ -172,6 +173,8 @@ spec:
               value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
             - name: XELON_API_URL
               value: "INSERT_API_URL_HERE"
+            - name: XELON_API_CLIENT_ID
+              value: "INSERT_XELON_API_CLIENT_ID"
             - name: XELON_API_TOKEN
               value: "INSERT_TOKEN_HERE"
           imagePullPolicy: "Always"
