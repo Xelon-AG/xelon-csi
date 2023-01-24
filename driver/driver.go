@@ -30,6 +30,7 @@ type Mode string
 // Config is used to configure a new Driver
 type Config struct {
 	BaseURL      string
+	ClientID     string
 	Endpoint     string
 	Mode         Mode
 	MetadataFile string
