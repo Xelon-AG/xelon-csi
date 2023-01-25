@@ -1,5 +1,5 @@
 #
-# This file is the release candidate v0.6.0-rc1.
+# This file is the release candidate v0.6.0-rc2.
 #
 ---
 apiVersion: storage.k8s.io/v1
@@ -195,7 +195,7 @@ spec:
       serviceAccountName: xelon-csi-controller-sa
       containers:
         - name: xelon-csi-plugin
-          image: xelonag/xelon-csi:v0.6.0-rc1
+          image: xelonag/xelon-csi:v0.6.0-rc2
           args:
             - "--api-url=$(XELON_API_URL)"
             - "--client-id=$(XELON_API_CLIENT_ID)"
@@ -291,9 +291,10 @@ spec:
       hostNetwork: true
       containers:
         - name: xelon-csi-plugin
-          image: xelonag/xelon-csi:v0.6.0-rc1
+          image: xelonag/xelon-csi:v0.6.0-rc2
           args:
             - "--mode=node"
+            - "--log-level=debug"
           imagePullPolicy: "Always"
           securityContext:
             privileged: true
