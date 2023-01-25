@@ -29,12 +29,13 @@ type Mode string
 
 // Config is used to configure a new Driver
 type Config struct {
-	BaseURL      string
-	ClientID     string
-	Endpoint     string
-	Mode         Mode
-	MetadataFile string
-	Token        string
+	BaseURL        string
+	ClientID       string
+	Endpoint       string
+	Mode           Mode
+	MetadataFile   string
+	RescanOnResize bool
+	Token          string
 }
 
 // Driver implements the following CSI interfaces:

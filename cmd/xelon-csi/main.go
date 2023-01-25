@@ -15,14 +15,15 @@ import (
 
 func main() {
 	var (
-		apiURL       = flag.String("api-url", "https://vdc.xelon.ch/api/service/", "Xelon API URL")
-		endpoint     = flag.String("endpoint", "unix:///var/lib/kubelet/plugins/"+driver.DefaultDriverName+"/csi.sock", "CSI endpoint")
-		logLevel     = flag.String("log-level", "info", "The log level for the CSI driver")
-		mode         = flag.String("mode", string(driver.AllMode), "The mode in which the CSI driver will be run (all, node, controller)")
-		metadataFile = flag.String("metadata-file", "/etc/init.d/metadata.json", "The path to the metadata file on Xelon devices")
-		token        = flag.String("token", "", "Xelon access token")
-		clientID     = flag.String("client-id", "", "Xelon client id for IP ranges")
-		version      = flag.Bool("version", false, "Print the version and exit.")
+		apiURL         = flag.String("api-url", "https://vdc.xelon.ch/api/service/", "Xelon API URL")
+		clientID       = flag.String("client-id", "", "Xelon client id for IP ranges")
+		endpoint       = flag.String("endpoint", "unix:///var/lib/kubelet/plugins/"+driver.DefaultDriverName+"/csi.sock", "CSI endpoint")
+		logLevel       = flag.String("log-level", "info", "The log level for the CSI driver")
+		metadataFile   = flag.String("metadata-file", "/etc/init.d/metadata.json", "The path to the metadata file on Xelon devices")
+		mode           = flag.String("mode", string(driver.AllMode), "The mode in which the CSI driver will be run (all, node, controller)")
+		rescanOnResize = flag.Bool("rescan-on-resize", true, "Rescan block device and verify its size before expanding the filesystem (node mode)")
+		token          = flag.String("token", "", "Xelon access token")
+		version        = flag.Bool("version", false, "Print the version and exit.")
 	)
 	flag.Parse()
 
@@ -41,12 +42,13 @@ func main() {
 	logger := initializeLogging(*logLevel, *mode, *metadataFile)
 	d, err := driver.NewDriver(
 		&driver.Config{
-			BaseURL:      *apiURL,
-			ClientID:     *clientID,
-			Endpoint:     *endpoint,
-			Mode:         driver.Mode(*mode),
-			MetadataFile: *metadataFile,
-			Token:        *token,
+			BaseURL:        *apiURL,
+			ClientID:       *clientID,
+			Endpoint:       *endpoint,
+			Mode:           driver.Mode(*mode),
+			MetadataFile:   *metadataFile,
+			RescanOnResize: *rescanOnResize,
+			Token:          *token,
 		},
 		logger)
 	if err != nil {

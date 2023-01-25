@@ -81,6 +81,12 @@ func (d *Driver) NodeStageVolume(_ context.Context, req *csi.NodeStageVolumeRequ
 		return nil, status.Errorf(codes.InvalidArgument, "%s not found in publish context of volume %s", volumeUUID, req.VolumeId)
 	}
 
+	if d.config.RescanOnResize {
+		if err := d.mounter.RescanSCSIDevices(); err != nil {
+			return nil, status.Errorf(codes.Internal, "error rescanning scsi devices %q: %v", req.VolumeId, err)
+		}
+	}
+
 	source, err := getDevicePathByUUID(volumeUUID)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -160,6 +166,12 @@ func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolume
 		}
 	} else {
 		log.Info("staging target path is already unmounted")
+	}
+
+	if d.config.RescanOnResize {
+		if err := d.mounter.RescanSCSIDevices(); err != nil {
+			return nil, status.Errorf(codes.Internal, "error rescanning scsi devices %q: %v", req.VolumeId, err)
+		}
 	}
 
 	log.Info("unmounting stage volume is finished")
@@ -329,6 +341,12 @@ func (d *Driver) NodeExpandVolume(_ context.Context, req *csi.NodeExpandVolumeRe
 	devicePath, _, err := mount.GetDeviceNameFromMount(mounter, volumePath)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "NodeExpandVolume unable to get device path for %q: %v", volumePath, err)
+	}
+
+	if d.config.RescanOnResize {
+		if err = d.mounter.RescanSCSIDevices(); err != nil {
+			return nil, status.Errorf(codes.Internal, "NodeExpandVolume could not rescan devices %q: %v", volumeID, err)
+		}
 	}
 
 	r := mount.NewResizeFs(exec.New())
