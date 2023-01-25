@@ -464,8 +464,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 		return nil, status.Errorf(codes.Internal, "volume is not ready %v seconds", volumeStatusCheckRetries*volumeStatusCheckInterval)
 	}
 
-	log.WithField("new_volume_size", resizeBytes)
-	log.Info("volume was resized")
+	log.WithField("new_volume_size", resizeBytes).Info("volume was resized")
 
 	return &csi.ControllerExpandVolumeResponse{
 		CapacityBytes:         resizeBytes,

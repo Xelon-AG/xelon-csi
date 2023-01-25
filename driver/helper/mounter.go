@@ -34,6 +34,8 @@ type Mounter interface {
 	IsMounted(target string) (bool, error)
 	Mount(source, target string, options ...string) error
 	Unmount(target string) error
+
+	RescanSCSIDevices() error
 }
 
 type mounter struct {
