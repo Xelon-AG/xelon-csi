@@ -83,7 +83,7 @@ func (d *Driver) NodeStageVolume(_ context.Context, req *csi.NodeStageVolumeRequ
 
 	if d.config.RescanOnResize {
 		if err := d.mounter.RescanSCSIDevices(); err != nil {
-			return nil, status.Errorf(codes.Internal, "error rescanning scsi devices %q: %v", req.VolumeId, err)
+			return nil, status.Errorf(codes.Internal, "NodeStageVolume error rescanning scsi devices %q: %v", req.VolumeId, err)
 		}
 	}
 
@@ -170,7 +170,7 @@ func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolume
 
 	if d.config.RescanOnResize {
 		if err := d.mounter.RescanSCSIDevices(); err != nil {
-			return nil, status.Errorf(codes.Internal, "error rescanning scsi devices %q: %v", req.VolumeId, err)
+			return nil, status.Errorf(codes.Internal, "NodeUnstageVolume error rescanning scsi devices %q: %v", req.VolumeId, err)
 		}
 	}
 
