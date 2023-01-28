@@ -5,6 +5,7 @@ RUN apk add --no-cache ca-certificates \
                        e2fsprogs \
                        e2fsprogs-extra \
                        findmnt \
+                       parted \
                        xfsprogs \
     && rm -rf /var/cache/apk/*
 

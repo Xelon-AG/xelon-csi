@@ -3,6 +3,8 @@ package helper
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 
 	"github.com/sirupsen/logrus"
 )
@@ -26,7 +28,11 @@ func (m *mounter) RescanSCSIDevices() error {
 		return err
 	}
 	for _, scsiHost := range scsiHosts {
-		scsiHostScanFile := fmt.Sprintf(scsiHostScanPath, scsiHost)
+		scsiHostScanFile, err := filepath.EvalSymlinks(fmt.Sprintf(scsiHostScanPath, scsiHost))
+		if err != nil {
+			log.Errorf("could not evaluate symlinks: %v", err)
+		}
+
 		log.Debugf("rescan scsi host initiated for %v", scsiHostScanFile)
 
 		if !fileExist(scsiHostScanFile) {
@@ -34,7 +40,7 @@ func (m *mounter) RescanSCSIDevices() error {
 			continue
 		}
 
-		err = os.WriteFile(scsiHostScanFile, []byte("- - -"), 0644)
+		err = os.WriteFile(scsiHostScanFile, []byte("- - -"), 0666)
 		if err != nil {
 			log.Errorf("could not write to file %v: %v", scsiHostScanFile, err)
 		}
@@ -47,7 +53,11 @@ func (m *mounter) RescanSCSIDevices() error {
 		return err
 	}
 	for _, scsiDevice := range scsiDevices {
-		scsiDeviceRescanFile := fmt.Sprintf(scsiDeviceRescanPath, scsiDevice)
+		scsiDeviceRescanFile, err := filepath.EvalSymlinks(fmt.Sprintf(scsiDeviceRescanPath, scsiDevice))
+		if err != nil {
+			log.Errorf("could not evaluate symlinks: %v", err)
+		}
+
 		log.Debugf("rescan scsi device initiated for %v", scsiDeviceRescanFile)
 
 		if !fileExist(scsiDeviceRescanFile) {
@@ -55,10 +65,30 @@ func (m *mounter) RescanSCSIDevices() error {
 			continue
 		}
 
-		err = os.WriteFile(scsiDeviceRescanFile, []byte("1"), 0644)
+		err = os.WriteFile(scsiDeviceRescanFile, []byte("1"), 0666)
 		if err != nil {
 			log.Errorf("could not write to file %v: %v", scsiDeviceRescanFile, err)
 		}
+	}
+
+	// inform about partition table changes
+	// this command will always be executed last!
+	partprobeCmd := "partprobe"
+	partprobeArgs := "-s"
+	_, err = exec.LookPath(partprobeCmd)
+	if err != nil {
+		if err == exec.ErrNotFound {
+			log.Warnf("%q executable not found in $PATH, skip informing about partition table changes", partprobeCmd)
+			return nil
+		}
+	}
+	log.WithFields(logrus.Fields{
+		"cmd":  partprobeCmd,
+		"args": partprobeArgs,
+	}).Debug("executing partprobe command")
+	out, err := exec.Command(partprobeCmd, partprobeArgs).CombinedOutput()
+	if err != nil {
+		log.Errorf("informing about partition table changes failed: %v; output: %q", err, string(out))
 	}
 
 	return nil
