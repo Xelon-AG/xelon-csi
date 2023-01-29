@@ -294,7 +294,6 @@ spec:
           image: xelonag/xelon-csi:v0.6.0
           args:
             - "--mode=node"
-            - "--log-level=debug"
           imagePullPolicy: "IfNotPresent"
           securityContext:
             privileged: true
