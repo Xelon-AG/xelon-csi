@@ -6,6 +6,7 @@ archives:
       - README.md
     format: zip
     name_template: '{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    rlcp: true
 
 before:
   hooks:
