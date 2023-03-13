@@ -1,5 +1,5 @@
 #
-# This file is only for development use. Do not use in production.
+# This file is the release v0.6.1.
 #
 ---
 apiVersion: storage.k8s.io/v1
@@ -32,27 +32,27 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: xelon-csi-provisioner-role
 rules:
-  - apiGroups: [""]
-    resources: ["persistentvolumes"]
-    verbs: ["get", "list", "watch", "create", "delete"]
-  - apiGroups: [""]
-    resources: ["persistentvolumeclaims"]
-    verbs: ["get", "list", "watch", "update"]
-  - apiGroups: ["storage.k8s.io"]
-    resources: ["storageclasses"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources: ["events"]
-    verbs: ["list", "watch", "create", "update", "patch"]
-  - apiGroups: ["storage.k8s.io"]
-    resources: ["csinodes"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources: ["nodes"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["storage.k8s.io"]
-    resources: ["volumeattachments"]
-    verbs: ["get", "list", "watch"]
+  - apiGroups: [ "" ]
+    resources: [ "persistentvolumes" ]
+    verbs: [ "get", "list", "watch", "create", "delete" ]
+  - apiGroups: [ "" ]
+    resources: [ "persistentvolumeclaims" ]
+    verbs: [ "get", "list", "watch", "update" ]
+  - apiGroups: [ "storage.k8s.io" ]
+    resources: [ "storageclasses" ]
+    verbs: [ "get", "list", "watch" ]
+  - apiGroups: [ "" ]
+    resources: [ "events" ]
+    verbs: [ "list", "watch", "create", "update", "patch" ]
+  - apiGroups: [ "storage.k8s.io" ]
+    resources: [ "csinodes" ]
+    verbs: [ "get", "list", "watch" ]
+  - apiGroups: [ "" ]
+    resources: [ "nodes" ]
+    verbs: [ "get", "list", "watch" ]
+  - apiGroups: [ "storage.k8s.io" ]
+    resources: [ "volumeattachments" ]
+    verbs: [ "get", "list", "watch" ]
 
 ---
 kind: ClusterRoleBinding
@@ -74,21 +74,21 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: xelon-csi-attacher-role
 rules:
-  - apiGroups: [""]
-    resources: ["persistentvolumes"]
-    verbs: ["get", "list", "watch", "update", "patch"]
-  - apiGroups: [""]
-    resources: ["nodes"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["storage.k8s.io"]
-    resources: ["csinodes"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["storage.k8s.io"]
-    resources: ["volumeattachments"]
-    verbs: ["get", "list", "watch", "update", "patch"]
-  - apiGroups: ["storage.k8s.io"]
-    resources: ["volumeattachments/status"]
-    verbs: ["patch"]
+  - apiGroups: [ "" ]
+    resources: [ "persistentvolumes" ]
+    verbs: [ "get", "list", "watch", "update", "patch" ]
+  - apiGroups: [ "" ]
+    resources: [ "nodes" ]
+    verbs: [ "get", "list", "watch" ]
+  - apiGroups: [ "storage.k8s.io" ]
+    resources: [ "csinodes" ]
+    verbs: [ "get", "list", "watch" ]
+  - apiGroups: [ "storage.k8s.io" ]
+    resources: [ "volumeattachments" ]
+    verbs: [ "get", "list", "watch", "update", "patch" ]
+  - apiGroups: [ "storage.k8s.io" ]
+    resources: [ "volumeattachments/status" ]
+    verbs: [ "patch" ]
 
 ---
 kind: ClusterRoleBinding
@@ -110,18 +110,18 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: xelon-csi-resizer-role
 rules:
-  - apiGroups: [""]
-    resources: ["persistentvolumes"]
-    verbs: ["get", "list", "watch", "update", "patch"]
-  - apiGroups: [""]
-    resources: ["persistentvolumeclaims"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources: ["persistentvolumeclaims/status"]
-    verbs: ["update", "patch"]
-  - apiGroups: [""]
-    resources: ["events"]
-    verbs: ["list", "watch", "create", "update", "patch"]
+  - apiGroups: [ "" ]
+    resources: [ "persistentvolumes" ]
+    verbs: [ "get", "list", "watch", "update", "patch" ]
+  - apiGroups: [ "" ]
+    resources: [ "persistentvolumeclaims" ]
+    verbs: [ "get", "list", "watch" ]
+  - apiGroups: [ "" ]
+    resources: [ "persistentvolumeclaims/status" ]
+    verbs: [ "update", "patch" ]
+  - apiGroups: [ "" ]
+    resources: [ "events" ]
+    verbs: [ "list", "watch", "create", "update", "patch" ]
 
 ---
 kind: ClusterRoleBinding
@@ -151,9 +151,9 @@ metadata:
   name: xelon-csi-node-driver-registrar-role
   namespace: kube-system
 rules:
-  - apiGroups: [""]
-    resources: ["events"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [ "" ]
+    resources: [ "events" ]
+    verbs: [ "get", "list", "watch", "create", "update", "patch" ]
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -195,7 +195,7 @@ spec:
       serviceAccountName: xelon-csi-controller-sa
       containers:
         - name: xelon-csi-plugin
-          image: xelonag/xelon-csi:dev
+          image: xelonag/xelon-csi:v0.6.0
           args:
             - "--api-url=$(XELON_API_URL)"
             - "--client-id=$(XELON_API_CLIENT_ID)"
@@ -211,7 +211,7 @@ spec:
               value: "INSERT_XELON_API_CLIENT_ID"
             - name: XELON_API_TOKEN
               value: "INSERT_TOKEN_HERE"
-          imagePullPolicy: "Always"
+          imagePullPolicy: "IfNotPresent"
           volumeMounts:
             - name: socket-dir
               mountPath: /var/lib/csi/sockets/pluginproxy/
@@ -259,7 +259,7 @@ spec:
               mountPath: /var/lib/csi/sockets/pluginproxy/
       volumes:
         - name: socket-dir
-          emptyDir: {}
+          emptyDir: { }
         - name: metadata-file
           hostPath:
             path: /etc/init.d
@@ -291,14 +291,14 @@ spec:
       hostNetwork: true
       containers:
         - name: xelon-csi-plugin
-          image: xelonag/xelon-csi:dev
+          image: xelonag/xelon-csi:v0.6.0
           args:
             - "--mode=node"
-          imagePullPolicy: "Always"
+          imagePullPolicy: "IfNotPresent"
           securityContext:
             privileged: true
             capabilities:
-              add: ["SYS_ADMIN"]
+              add: [ "SYS_ADMIN" ]
             allowPrivilegeEscalation: true
           volumeMounts:
             - name: plugin-dir
