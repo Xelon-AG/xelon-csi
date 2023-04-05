@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -152,4 +154,29 @@ func fileExist(path string) bool {
 		return false
 	}
 	return !info.IsDir()
+}
+
+func (m *mounter) GetVolumeStatistics(volumePath string) (VolumeStatistics, error) {
+	fs := &unix.Statfs_t{}
+	err := unix.Statfs(volumePath, fs)
+	if err != nil {
+		return VolumeStatistics{}, err
+	}
+
+	totalBytes := fs.Blocks * uint64(fs.Bsize)
+	availableBytes := fs.Bfree * uint64(fs.Bsize)
+	usedBytes := totalBytes - availableBytes
+
+	totalInodes := fs.Files
+	availableInodes := fs.Ffree
+	usedInodes := totalInodes - availableInodes
+
+	return VolumeStatistics{
+		AvailableBytes:  int64(availableBytes),
+		AvailableInodes: int64(availableInodes),
+		TotalBytes:      int64(totalBytes),
+		TotalInodes:     int64(totalInodes),
+		UsedBytes:       int64(usedBytes),
+		UsedInodes:      int64(usedInodes),
+	}, nil
 }
