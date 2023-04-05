@@ -287,6 +287,13 @@ func (d *Driver) NodeGetCapabilities(_ context.Context, _ *csi.NodeGetCapabiliti
 					},
 				},
 			},
+			{
+				Type: &csi.NodeServiceCapability_Rpc{
+					Rpc: &csi.NodeServiceCapability_RPC{
+						Type: csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
+					},
+				},
+			},
 		},
 	}, nil
 }
@@ -304,11 +311,63 @@ func (d *Driver) NodeGetInfo(_ context.Context, _ *csi.NodeGetInfoRequest) (*csi
 	}, nil
 }
 
-// NodeGetVolumeStats returns the volume capacity statistics available for the
-// the given volume.
-func (d *Driver) NodeGetVolumeStats(_ context.Context, _ *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
-	klog.V(4).Infof("NodeGetVolumeStats is not yet implemented")
-	return nil, status.Error(codes.Unimplemented, "NodeGetVolumeStats is not yet implemented")
+// NodeGetVolumeStats returns the volume capacity statistics available for the given volume.
+func (d *Driver) NodeGetVolumeStats(_ context.Context, req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodeGetVolumeStats Volume ID must be provided")
+	}
+
+	volumePath := req.VolumePath
+	if volumePath == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodeGetVolumeStats Volume Path must be provided")
+	}
+
+	log := d.log.WithFields(logrus.Fields{
+		"method":      "node_get_volume_stats",
+		"volume_id":   req.VolumeId,
+		"volume_path": req.VolumePath,
+	})
+	log.Info("node get volume stats called")
+
+	mounted, err := d.mounter.IsMounted(volumePath)
+	if err != nil {
+		return nil, err
+	}
+
+	if !mounted {
+		return nil, status.Errorf(codes.NotFound, "volume path %q is not mounted", volumePath)
+	}
+
+	statistics, err := d.mounter.GetVolumeStatistics(volumePath)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to retrieve capacity statistics for volume path %q: %s", volumePath, err)
+	}
+
+	log.WithFields(logrus.Fields{
+		"bytes_available":  statistics.AvailableBytes,
+		"inodes_available": statistics.AvailableInodes,
+		"bytes_total":      statistics.TotalBytes,
+		"inodes_total":     statistics.TotalInodes,
+		"bytes_used":       statistics.UsedBytes,
+		"inodes_used":      statistics.UsedInodes,
+	}).Info("node capacity statistics retrieved")
+
+	return &csi.NodeGetVolumeStatsResponse{
+		Usage: []*csi.VolumeUsage{
+			{
+				Available: statistics.AvailableBytes,
+				Total:     statistics.TotalBytes,
+				Used:      statistics.UsedBytes,
+				Unit:      csi.VolumeUsage_BYTES,
+			},
+			{
+				Available: statistics.AvailableInodes,
+				Total:     statistics.TotalInodes,
+				Used:      statistics.UsedInodes,
+				Unit:      csi.VolumeUsage_INODES,
+			},
+		},
+	}, nil
 }
 
 // NodeExpandVolume expands the given volume

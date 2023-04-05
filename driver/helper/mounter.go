@@ -36,6 +36,16 @@ type Mounter interface {
 	Unmount(target string) error
 
 	RescanSCSIDevices() error
+	GetVolumeStatistics(volumePath string) (VolumeStatistics, error)
+}
+
+type VolumeStatistics struct {
+	AvailableBytes  int64
+	AvailableInodes int64
+	TotalBytes      int64
+	TotalInodes     int64
+	UsedBytes       int64
+	UsedInodes      int64
 }
 
 type mounter struct {
