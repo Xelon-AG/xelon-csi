@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Xelon-AG/xelon-sdk-go/xelon"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
@@ -16,6 +15,7 @@ import (
 	"k8s.io/klog"
 
 	"github.com/Xelon-AG/xelon-csi/driver/helper"
+	"github.com/Xelon-AG/xelon-sdk-go/xelon"
 )
 
 const (
@@ -40,6 +40,13 @@ var (
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 		csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
 		csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
+	}
+
+	// Xelon currently only support a single volume to be attached to a single node
+	// in read/write mode. This corresponds to `accessModes.ReadWriteOnce` in a
+	// PVC resource on Kubernetes
+	supportedAccessMode = &csi.VolumeCapability_AccessMode{
+		Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
 	}
 
 	xelonStorageUUID = DefaultDriverName + "/storage-uuid"
@@ -93,8 +100,9 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if req.VolumeCapabilities == nil || len(req.VolumeCapabilities) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume capabilities must be provided")
 	}
-
-	// TODO: validation
+	if !isValidCapabilities(req.VolumeCapabilities) {
+		return nil, status.Errorf(codes.InvalidArgument, "Volume capability is not compatible: %v", req)
+	}
 
 	size, err := extractStorage(req.CapacityRange)
 	if err != nil {
@@ -349,9 +357,39 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
-func (d *Driver) ValidateVolumeCapabilities(_ context.Context, _ *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
-	klog.V(4).Infof("ValidateVolumeCapabilities is not yet implemented")
-	return nil, status.Error(codes.Unimplemented, "ValidateVolumeCapabilities is not yet implemented")
+func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "ValidateVolumeCapabilities Volume ID must be provided")
+	}
+	if req.VolumeCapabilities == nil {
+		return nil, status.Error(codes.InvalidArgument, "ValidateVolumeCapabilities Volume Capabilities must be provided")
+	}
+
+	log := d.log.WithFields(logrus.Fields{
+		"method":                 "validate_volume_capabilities",
+		"volume_id":              req.VolumeId,
+		"volume_capabilities":    req.VolumeCapabilities,
+		"supported_capabilities": supportedAccessMode,
+	})
+	log.Info("validate volume capabilities called")
+
+	// check if storage exist before validating it
+	_, resp, err := d.xelon.PersistentStorages.Get(ctx, d.tenantID, req.VolumeId)
+	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			return nil, status.Errorf(codes.NotFound, "volume %q doesn't exist", req.VolumeId)
+		}
+	}
+
+	return &csi.ValidateVolumeCapabilitiesResponse{
+		Confirmed: &csi.ValidateVolumeCapabilitiesResponse_Confirmed{
+			VolumeCapabilities: []*csi.VolumeCapability{
+				{
+					AccessMode: supportedAccessMode,
+				},
+			},
+		},
+	}, nil
 }
 
 func (d *Driver) ListVolumes(_ context.Context, _ *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
@@ -537,4 +575,24 @@ func formatBytes(inputBytes int64) string {
 	result := strconv.FormatFloat(output, 'f', 1, 64)
 	result = strings.TrimSuffix(result, ".0")
 	return result + unit
+}
+
+// isValidCapabilities validates the requested capabilities. It returns a list
+// of violations which may be empty if no violations were found.
+func isValidCapabilities(capabilities []*csi.VolumeCapability) bool {
+	for _, capability := range capabilities {
+		if capability == nil {
+			return false
+		}
+
+		accessMode := capability.GetAccessMode()
+		if accessMode == nil {
+			return false
+		}
+
+		if accessMode.GetMode() != supportedAccessMode.GetMode() {
+			return false
+		}
+	}
+	return true
 }
