@@ -14,7 +14,7 @@ linters:
 
 linters-settings:
   goimports:
-    local-prefixes: github.com/Xelon-AG/xelon-csi
+    local-prefixes: github.com/Xelon-AG/xelon-csi,github.com/Xelon-AG/xelon-sdk-go
 
 output:
   format: tab
