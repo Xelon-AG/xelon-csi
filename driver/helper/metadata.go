@@ -14,6 +14,29 @@ type deviceInfo struct {
 }
 
 func getDeviceInfo(metadataFile string) (*deviceInfo, error) {
+	// reading device info from envvars is the new approach,
+	// so try to use it and fallback if no envvar is defined
+	deviceInfo := getDeviceInfoFromEnv()
+	if deviceInfo.Metadata.LocalVMID == "" {
+		return getDeviceInfoFromFile(metadataFile)
+	}
+	return deviceInfo, nil
+}
+
+func getDeviceInfoFromEnv() *deviceInfo {
+	cloudID := os.Getenv("XELON_CLOUD_ID")
+	localVMID := os.Getenv("XELON_LOCAL_VM_ID")
+	hostname := os.Getenv("XELON_VM_HOSTNAME")
+
+	deviceInfoFromEnv := new(deviceInfo)
+	deviceInfoFromEnv.Metadata.CloudID = cloudID
+	deviceInfoFromEnv.Metadata.LocalVMID = localVMID
+	deviceInfoFromEnv.Metadata.Hostname = hostname
+
+	return deviceInfoFromEnv
+}
+
+func getDeviceInfoFromFile(metadataFile string) (*deviceInfo, error) {
 	f, err := os.Open(metadataFile)
 	if err != nil {
 		return nil, err
