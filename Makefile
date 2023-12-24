@@ -57,18 +57,17 @@ build:
 	@GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(PROJECT_NAME) cmd/xelon-csi/main.go
 
 
-## build-docker: Build docker image with included binary.
+## build-docker-dev: Build docker image with included binary.
 .PHONE: build-docker-dev
 build-docker-dev: build
 	@echo "==> Building docker image $(IMAGE_NAME)..."
-	@docker build -t $(IMAGE_NAME) -f Dockerfile.dev .
+	@docker build --build-arg VERSION=$(VERSION) --tag $(IMAGE_NAME):dev --file Dockerfile build
 
 
 ## release-docker-dev: Release development docker image.
 .PHONE: release-docker-dev
 release-docker-dev: build-docker-dev
 	@echo "==> Releasing development docker image $(IMAGE_NAME):dev..."
-	@docker image tag $(IMAGE_NAME) $(IMAGE_NAME):dev
 	@docker push $(IMAGE_NAME):dev
 
 

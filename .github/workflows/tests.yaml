@@ -4,11 +4,11 @@ on:
     paths-ignore:
       - "CHANGELOG.md"
       - "README.md"
-    push:
-      branches: [ main ]
-      paths-ignore:
-        - "CHANGELOG.md"
-        - "README.md"
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - "CHANGELOG.md"
+      - "README.md"
 
 permissions:
   contents: read
