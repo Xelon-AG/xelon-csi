@@ -39,7 +39,7 @@ checksum:
 dist: build
 
 dockers:
-  - dockerfile: Dockerfile.release
+  - dockerfile: Dockerfile
     goarch: amd64
     goos: linux
     image_templates:
