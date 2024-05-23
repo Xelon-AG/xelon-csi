@@ -11,6 +11,7 @@ docs/releases/secret.yml
 #################################
 # Golang files                  #
 #################################
+/tools/bin/
 .bin/
 *.exe
 *.dll
