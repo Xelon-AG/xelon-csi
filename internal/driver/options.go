@@ -1,4 +1,4 @@
-package xelon
+package driver
 
 // Options contains parsed CLI flags passed to the driver.
 type Options struct {

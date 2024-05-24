@@ -1,4 +1,4 @@
-package xelon
+package driver
 
 import (
 	"context"
@@ -16,8 +16,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-type DriverOption func(*Driver)
-
 // Mode represents the mode in which the CSI driver started
 type Mode string
 
@@ -29,6 +27,7 @@ const (
 	AllMode        Mode = "all"
 )
 
+// Compile-time check to ensure that Driver satisfies the CSI interface.
 var (
 	_ csi.ControllerServer = &Driver{}
 	_ csi.IdentityServer   = &Driver{}

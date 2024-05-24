@@ -1,4 +1,4 @@
-package xelon
+package driver
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
 
-	"github.com/Xelon-AG/xelon-csi/internal/xelon/cloud"
+	"github.com/Xelon-AG/xelon-csi/internal/driver/cloud"
 	"github.com/Xelon-AG/xelon-sdk-go/xelon"
 )
 

@@ -1,4 +1,4 @@
-package xelon
+package driver
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"k8s.io/mount-utils"
 	"k8s.io/utils/exec"
 
-	"github.com/Xelon-AG/xelon-csi/internal/xelon/cloud"
+	"github.com/Xelon-AG/xelon-csi/internal/driver/cloud"
 )
 
 const diskUUIDPath = "/dev/disk/by-uuid"
