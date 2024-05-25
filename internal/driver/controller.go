@@ -37,11 +37,10 @@ const (
 )
 
 var (
-	// controllerCapabilities represents the capabilities of the Xelon Volumes
 	controllerCapabilities = []csi.ControllerServiceCapability_RPC_Type{
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 		csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
-		// csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
+		csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 	}
 
 	// Xelon currently only support a single volume to be attached to a single node
@@ -157,6 +156,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				if storage.UUID != "" && storage.Formatted == 1 {
 					klog.V(2).InfoS("Volume already created",
 						"method", "CreateVolume",
+						"volume_id", storage.LocalID,
 						"volume_name", volumeName,
 					)
 					return &csi.CreateVolumeResponse{
@@ -528,9 +528,98 @@ func (d *Driver) ListSnapshots(_ context.Context, _ *csi.ListSnapshotsRequest) (
 	return nil, status.Error(codes.Unimplemented, "ListSnapshots is not yet implemented")
 }
 
-func (d *Driver) ControllerExpandVolume(_ context.Context, _ *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
-	klog.V(2).InfoS("Not yet implemented", "method", "ControllerExpandVolume")
-	return nil, status.Error(codes.Unimplemented, "ControllerExpandVolume is not yet implemented")
+func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "volume name not provided")
+	}
+
+	klog.V(2).InfoS("Expanding volume",
+		"method", "ControllerExpandVolume",
+		"volume_id", req.VolumeId,
+	)
+
+	klog.V(5).InfoS("Fetching persistent storage to ensure it exists",
+		"method", "ControllerExpandVolume",
+		"tenant_id", d.tenantID,
+		"volume_id", req.VolumeId,
+	)
+	storage, resp, err := d.xelon.PersistentStorages.Get(ctx, d.tenantID, req.VolumeId)
+	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			return nil, status.Errorf(codes.NotFound, "volume %q doesn't exist", req.VolumeId)
+		}
+		return nil, status.Errorf(codes.Internal, "could not fetch existing volume: %v", err)
+	}
+	klog.V(5).InfoS("Found persistent storage",
+		"method", "ControllerExpandVolume",
+		"response", *storage,
+		"tenant_id", d.tenantID,
+		"volume_id", req.VolumeId,
+	)
+
+	resizeBytes, err := extractStorage(req.GetCapacityRange())
+	if err != nil {
+		return nil, status.Errorf(codes.OutOfRange, "invalid capacity range: %v", err)
+	}
+
+	if resizeBytes <= int64(storage.Capacity*giB) {
+		klog.V(2).InfoS("Skip volume expanding because current volume size exceeds requested volume size",
+			"current_volume_size_in_bytes", int64(storage.Capacity*giB),
+			"method", "ControllerExpandVolume",
+			"requested_volume_size_in_bytes", resizeBytes,
+			"volume_id", req.VolumeId,
+		)
+		return &csi.ControllerExpandVolumeResponse{
+			CapacityBytes:         int64(storage.Capacity * giB),
+			NodeExpansionRequired: true,
+		}, nil
+	}
+
+	extendRequest := &xelon.PersistentStorageExtendRequest{Size: int(resizeBytes / giB)}
+	klog.V(5).InfoS("Extending persistent storage size",
+		"method", "ControllerExpandVolume",
+		"payload", *extendRequest,
+		"tenant_id", d.tenantID,
+		"volume_id", req.VolumeId,
+	)
+	apiResponse, _, err := d.xelon.PersistentStorages.Extend(ctx, req.VolumeId, extendRequest)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+	klog.V(5).InfoS("Extended persistent storage",
+		"method", "ControllerExpandVolume",
+		"response", *apiResponse,
+		"tenant_id", d.tenantID,
+		"volume_id", req.VolumeId,
+	)
+
+	klog.V(2).InfoS("Waiting for the volume to get ready",
+		"method", "ControllerExpandVolume",
+		"volume_id", req.VolumeId,
+	)
+	if err = wait.PollUntilContextTimeout(ctx, volumeStatusCheckInterval, volumeStatusCheckTimeout, false, func(ctx context.Context) (bool, error) {
+		storage, _, err := d.xelon.PersistentStorages.Get(ctx, d.tenantID, req.VolumeId)
+		if err != nil {
+			return false, status.Error(codes.Internal, err.Error())
+		}
+		if storage.UUID != "" && storage.Formatted == 1 {
+			return true, nil
+		}
+		return false, nil
+	}); err != nil {
+		return nil, status.Errorf(codes.Unknown, "volume is not ready")
+	}
+
+	klog.V(2).InfoS("Resized volume successfully",
+		"method", "ControllerExpandVolume",
+		"new_volume_size", resizeBytes,
+		"volume_id", req.VolumeId,
+	)
+
+	return &csi.ControllerExpandVolumeResponse{
+		CapacityBytes:         resizeBytes,
+		NodeExpansionRequired: true,
+	}, nil
 }
 
 func (d *Driver) ControllerGetVolume(_ context.Context, _ *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {

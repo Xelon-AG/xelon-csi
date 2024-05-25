@@ -17,7 +17,19 @@ import (
 	"github.com/Xelon-AG/xelon-csi/internal/driver/cloud"
 )
 
-const diskUUIDPath = "/dev/disk/by-uuid"
+const (
+	diskUUIDPath = "/dev/disk/by-uuid"
+
+	maxVolumeCountPerNode = 15
+)
+
+var (
+	nodeCapabilities = []csi.NodeServiceCapability_RPC_Type{
+		csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
+		csi.NodeServiceCapability_RPC_EXPAND_VOLUME,
+		// csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
+	}
+)
 
 type nodeService struct {
 	mounter *mount.SafeFormatAndMount
@@ -87,6 +99,7 @@ func (d *Driver) NodeStageVolume(_ context.Context, req *csi.NodeStageVolumeRequ
 
 	klog.V(5).InfoS("Determining if staging target is not a mount point",
 		"method", "NodeStageVolume",
+		"node_id", d.nodeID,
 		"node_name", d.nodeName,
 		"staging_target_path", target,
 		"volume_id", req.VolumeId,
@@ -113,6 +126,7 @@ func (d *Driver) NodeStageVolume(_ context.Context, req *csi.NodeStageVolumeRequ
 			"device_path", devicePath,
 			"method", "NodeStageVolume",
 			"mount_flags", mountFlags,
+			"node_id", d.nodeID,
 			"node_name", d.nodeName,
 			"staging_target_path", target,
 			"volume_id", req.VolumeId,
@@ -126,7 +140,7 @@ func (d *Driver) NodeStageVolume(_ context.Context, req *csi.NodeStageVolumeRequ
 	return &csi.NodeStageVolumeResponse{}, nil
 }
 
-func (d *Driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
+func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
 	if req.VolumeId == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "volume id not provided")
 	}
@@ -210,7 +224,7 @@ func (d *Driver) NodePublishVolume(_ context.Context, req *csi.NodePublishVolume
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
-func (d *Driver) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+func (d *Driver) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 	if req.VolumeId == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "volume id not provided")
 	}
@@ -237,34 +251,81 @@ func (d *Driver) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeS
 	return &csi.NodeGetVolumeStatsResponse{}, nil
 }
 
-func (d *Driver) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
-	klog.FromContext(ctx).Info("NodeExpandVolume called")
+func (d *Driver) NodeExpandVolume(_ context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "volume id not provided")
+	}
+
+	klog.V(2).InfoS("Expanding volume",
+		"method", "NodeExpandVolume",
+		"node_id", d.nodeID,
+		"node_name", d.nodeName,
+		"volume_id", req.VolumeId,
+		"volume_path", req.VolumePath,
+	)
+
+	devicePath, _, err := mount.GetDeviceNameFromMount(d.mounter, req.VolumePath)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to determine mount path for %s: %s", req.VolumePath, err)
+	}
+
+	klog.V(5).InfoS("Resizing device path",
+		"device_path", devicePath,
+		"method", "NodeExpandVolume",
+		"volume_path", req.VolumePath,
+	)
+	r := mount.NewResizeFs(d.mounter.Exec)
+	_, err = r.Resize(devicePath, req.VolumePath)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to resize volume: %s", err)
+	}
+
+	klog.V(2).InfoS("Expanded volume successfully",
+		"device_path", devicePath,
+		"method", "NodeExpandVolume",
+		"volume_path", req.VolumePath,
+	)
 	return &csi.NodeExpandVolumeResponse{}, nil
 }
 
-func (d *Driver) NodeGetCapabilities(_ context.Context, _ *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
-	return &csi.NodeGetCapabilitiesResponse{
-		Capabilities: []*csi.NodeServiceCapability{{
+func (d *Driver) NodeGetCapabilities(_ context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
+	var capabilities []*csi.NodeServiceCapability
+	for _, capability := range nodeCapabilities {
+		capabilities = append(capabilities, &csi.NodeServiceCapability{
 			Type: &csi.NodeServiceCapability_Rpc{
 				Rpc: &csi.NodeServiceCapability_RPC{
-					Type: csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
+					Type: capability,
 				},
 			},
-		}},
+		})
+	}
+
+	klog.V(5).InfoS("Get supported capabilities of the node server",
+		"capabilities", capabilities,
+		"method", "NodeGetCapabilities",
+		"node_id", d.nodeID,
+		"node_name", d.nodeName,
+		"req", *req,
+	)
+
+	return &csi.NodeGetCapabilitiesResponse{
+		Capabilities: capabilities,
 	}, nil
 }
 
 func (d *Driver) NodeGetInfo(_ context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
-	logKV := []any{"method", "NodeGetInfo", "req", *req}
+	klog.V(5).InfoS("Get info about the current node",
+		"method", "NodeGetInfo",
+		"node_id", d.nodeID,
+		"node_name", d.nodeName,
+		"max_volumes_per_node", maxVolumeCountPerNode,
+		"req", *req,
+	)
 
-	resp := &csi.NodeGetInfoResponse{
+	return &csi.NodeGetInfoResponse{
 		NodeId:            d.nodeID,
-		MaxVolumesPerNode: 15,
-	}
-	logKV = append(logKV, "resp", *resp)
-	klog.V(5).InfoS("Get supported capabilities of the node server", logKV...)
-
-	return resp, nil
+		MaxVolumesPerNode: maxVolumeCountPerNode,
+	}, nil
 }
 
 func getDevicePathByUUID(volumeUUID string) (string, error) {
