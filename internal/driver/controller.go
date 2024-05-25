@@ -12,6 +12,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
 	"github.com/Xelon-AG/xelon-csi/internal/driver/cloud"
@@ -28,8 +29,8 @@ const (
 	minVolumeSizeInBytes     int64 = 5 * giB
 	defaultVolumeSizeInBytes int64 = 10 * giB
 
-	volumeStatusCheckRetries  = 30
-	volumeStatusCheckInterval = 10
+	volumeStatusCheckInterval = 10 * time.Second
+	volumeStatusCheckTimeout  = 300 * time.Second
 
 	xelonStorageUUID = DefaultDriverName + "/storage-uuid"
 	xelonStorageName = DefaultDriverName + "/storage-name"
@@ -204,20 +205,17 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		"volume_id", apiResponse.PersistentStorage.LocalID,
 		"volume_name", volumeName,
 	)
-	volumeReady := false
-	for i := 0; i < volumeStatusCheckRetries; i++ {
-		time.Sleep(volumeStatusCheckInterval * time.Second)
-		storage, _, err = d.xelon.PersistentStorages.Get(ctx, d.tenantID, apiResponse.PersistentStorage.LocalID)
+	if err = wait.PollUntilContextTimeout(ctx, volumeStatusCheckInterval, volumeStatusCheckTimeout, false, func(ctx context.Context) (bool, error) {
+		storage, _, err := d.xelon.PersistentStorages.Get(ctx, d.tenantID, apiResponse.PersistentStorage.LocalID)
 		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
+			return false, status.Error(codes.Internal, err.Error())
 		}
 		if storage.UUID != "" && storage.Formatted == 1 {
-			volumeReady = true
-			break
+			return true, nil
 		}
-	}
-	if !volumeReady {
-		return nil, status.Errorf(codes.Unknown, "volume is not ready after %v seconds", volumeStatusCheckRetries*volumeStatusCheckInterval)
+		return false, nil
+	}); err != nil {
+		return nil, status.Errorf(codes.Unknown, "volume is not ready")
 	}
 
 	klog.V(2).InfoS("Created volume successfully",
