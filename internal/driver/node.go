@@ -34,11 +34,12 @@ var (
 type nodeService struct {
 	mounter *mount.SafeFormatAndMount
 
-	nodeID   string
-	nodeName string
+	nodeID         string
+	nodeName       string
+	rescanOnResize bool
 }
 
-func newNodeService(ctx context.Context) (*nodeService, error) {
+func newNodeService(ctx context.Context, opts *Options) (*nodeService, error) {
 	klog.V(2).InfoS("Initialize node service")
 
 	metadata, err := cloud.RetrieveMetadata(ctx)
@@ -56,8 +57,9 @@ func newNodeService(ctx context.Context) (*nodeService, error) {
 			Interface: mount.New(""),
 			Exec:      exec.New(),
 		},
-		nodeID:   metadata.LocalVMID,
-		nodeName: metadata.Name,
+		nodeID:         metadata.LocalVMID,
+		nodeName:       metadata.Name,
+		rescanOnResize: opts.RescanOnResize,
 	}, nil
 }
 
@@ -86,6 +88,12 @@ func (d *Driver) NodeStageVolume(_ context.Context, req *csi.NodeStageVolumeRequ
 	volumeUUID, ok := req.GetPublishContext()[xelonStorageUUID]
 	if !ok || volumeUUID == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "%s not found in publish context of volume %s", xelonStorageUUID, req.VolumeId)
+	}
+
+	if d.rescanOnResize {
+		if err := cloud.RescanSCSIDevices(); err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to rescan volume: %s", err)
+		}
 	}
 
 	devicePath, err := getDevicePathByUUID(volumeUUID)
@@ -159,6 +167,12 @@ func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolume
 	err := mount.CleanupMountPoint(target, d.mounter, false)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	if d.rescanOnResize {
+		if err = cloud.RescanSCSIDevices(); err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to rescan volume: %s", err)
+		}
 	}
 
 	return &csi.NodeUnstageVolumeResponse{}, nil
@@ -267,6 +281,12 @@ func (d *Driver) NodeExpandVolume(_ context.Context, req *csi.NodeExpandVolumeRe
 	devicePath, _, err := mount.GetDeviceNameFromMount(d.mounter, req.VolumePath)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to determine mount path for %s: %s", req.VolumePath, err)
+	}
+
+	if d.rescanOnResize {
+		if err = cloud.RescanSCSIDevices(); err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to rescan volume: %s", err)
+		}
 	}
 
 	klog.V(5).InfoS("Resizing device path",

@@ -65,7 +65,7 @@ func NewDriver(ctx context.Context, opts *Options) (*Driver, error) {
 			d.controllerService = controllerService
 		}
 	case NodeMode:
-		if nodeService, err := newNodeService(ctx); err != nil {
+		if nodeService, err := newNodeService(ctx, opts); err != nil {
 			return nil, err
 		} else {
 			d.nodeService = nodeService
@@ -76,7 +76,7 @@ func NewDriver(ctx context.Context, opts *Options) (*Driver, error) {
 		} else {
 			d.controllerService = controllerService
 		}
-		if nodeService, err := newNodeService(ctx); err != nil {
+		if nodeService, err := newNodeService(ctx, opts); err != nil {
 			return nil, err
 		} else {
 			d.nodeService = nodeService
