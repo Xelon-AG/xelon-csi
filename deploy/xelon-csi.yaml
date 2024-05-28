@@ -1,0 +1,376 @@
+---
+# Source: xelon-csi/templates/serviceaccount-controller.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: xelon-csi-controller-sa
+  namespace: kube-system
+---
+# Source: xelon-csi/templates/serviceaccount-node.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: xelon-csi-node-sa
+  namespace: kube-system
+---
+# Source: xelon-csi/templates/storageclass.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: xelon-persistent-storage
+  namespace: kube-system
+provisioner: csi.xelon.ch
+allowVolumeExpansion: true
+---
+# Source: xelon-csi/templates/rbac-controller-attacher.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: xelon-csi-attacher-role
+  namespace: kube-system
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "watch", "list", "delete", "update", "create", "patch"]
+  - apiGroups: ["csi.storage.k8s.io"]
+    resources: ["csinodeinfos"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["volumeattachments"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["volumeattachments/status"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+---
+# Source: xelon-csi/templates/rbac-controller-provisioner.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: xelon-csi-provisioner-role
+  namespace: kube-system
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "update"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csinodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["volumeattachments"]
+    verbs: ["get", "list", "watch"]
+---
+# Source: xelon-csi/templates/rbac-controller-resizer.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: xelon-csi-resizer-role
+  namespace: kube-system
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims/status"]
+    verbs: ["update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["volumeattributesclasses"]
+    verbs: ["get", "list", "watch"]
+---
+# Source: xelon-csi/templates/rbac-node-registrar.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: xelon-csi-node-driver-registrar-role
+  namespace: kube-system
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+---
+# Source: xelon-csi/templates/rbac-controller-attacher.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: xelon-csi-attacher-role-binding
+subjects:
+  - kind: ServiceAccount
+    name: xelon-csi-controller-sa
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: xelon-csi-attacher-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: xelon-csi/templates/rbac-controller-provisioner.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: xelon-csi-provisioner-role-binding
+subjects:
+  - kind: ServiceAccount
+    name: xelon-csi-controller-sa
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: xelon-csi-provisioner-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: xelon-csi/templates/rbac-controller-resizer.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: xelon-csi-resizer-role-binding
+subjects:
+  - kind: ServiceAccount
+    name: xelon-csi-controller-sa
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: xelon-csi-resizer-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: xelon-csi/templates/rbac-node-registrar.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: xelon-csi-node-driver-registrar-binding
+subjects:
+  - kind: ServiceAccount
+    name: xelon-csi-node-sa
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: xelon-csi-node-driver-registrar-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: xelon-csi/templates/node.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: xelon-csi-node
+  namespace: kube-system
+spec:
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: xelon-csi-node
+  template:
+    metadata:
+      labels:
+        app: xelon-csi-node
+        role: xelon-csi-node
+    spec:
+      hostNetwork: true
+      priorityClassName: system-node-critical
+      serviceAccountName: xelon-csi-node-sa
+      containers:
+        - name: xelon-csi-plugin
+          image: xelonag/xelon-csi:dev
+          imagePullPolicy: Always
+          args:
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--logging-format=text"
+            - "--mode=node"
+            - "--rescan-on-resize=true"
+            - "--v=2"
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: CSI_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: plugin-dir
+              mountPath: /csi
+            - name: pods-mount-dir
+              mountPath: /var/lib/kubelet
+              mountPropagation: "Bidirectional"
+            - name: device-dir
+              mountPath: /dev
+        - name: csi-node-driver-registrar
+          image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.9.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--csi-address=$(ADDRESS)"
+            - "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)"
+            - "--v=2"
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+            - name: DRIVER_REG_SOCK_PATH
+              value: /var/lib/kubelet/plugins/csi.xelon.ch/csi.sock
+          volumeMounts:
+            - name: plugin-dir
+              mountPath: /csi
+            - name: registration-dir
+              mountPath: /registration
+      volumes:
+        - name: registration-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry/
+            type: Directory
+        - name: plugin-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/csi.xelon.ch/
+            type: DirectoryOrCreate
+        - name: pods-mount-dir
+          hostPath:
+            path: /var/lib/kubelet
+            type: Directory
+        - name: device-dir
+          hostPath:
+            path: /dev
+---
+# Source: xelon-csi/templates/controller.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: xelon-csi-controller
+  namespace: kube-system
+spec:
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: xelon-csi-controller
+  serviceName: "xelon-csi"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: xelon-csi-controller
+        role: xelon-csi
+    spec:
+      priorityClassName: system-cluster-critical
+      serviceAccountName: xelon-csi-controller-sa
+      containers:
+        - name: xelon-csi-plugin
+          image: xelonag/xelon-csi:latest
+          imagePullPolicy: Always
+          args:
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--xelon-base-url=$(XELON_BASE_URL)"
+            - "--xelon-client-id=$(XELON_CLIENT_ID)"
+            - "--xelon-cloud-id=$(XELON_CLOUD_ID)"
+            - "--xelon-token=$(XELON_TOKEN)"
+            - "--logging-format=text"
+            - "--mode=controller"
+            - "--v=2"
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: XELON_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: xelon-api-credentials
+                  key: baseUrl
+            - name: XELON_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: xelon-api-credentials
+                  key: clientId
+            - name: XELON_CLOUD_ID
+              valueFrom:
+                secretKeyRef:
+                  name: xelon-api-credentials
+                  key: cloudId
+            - name: XELON_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: xelon-api-credentials
+                  key: token
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: csi-provisioner
+          image: registry.k8s.io/sig-storage/csi-provisioner:v3.6.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--csi-address=$(CSI_ADDRESS)"
+            - "--default-fstype=ext4"
+            - "--extra-create-metadata"
+            - "--retry-interval-start=5s"
+            - "--timeout=120s"
+            - "--v=5"
+            - "--worker-threads=1"
+          env:
+            - name: CSI_ADDRESS
+              value: /csi/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: csi-attacher
+          image: registry.k8s.io/sig-storage/csi-attacher:v4.4.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--csi-address=$(CSI_ADDRESS)"
+            - "--timeout=60s"
+            - "--v=5"
+            - "--worker-threads=1"
+          env:
+            - name: CSI_ADDRESS
+              value: /csi/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: csi-resizer
+          image: registry.k8s.io/sig-storage/csi-resizer:v1.9.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--csi-address=$(CSI_ADDRESS)"
+            - "--handle-volume-inuse-error=false"
+            - "--timeout=60s"
+            - "--v=5"
+          env:
+            - name: CSI_ADDRESS
+              value: /csi/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+      volumes:
+        - name: socket-dir
+          emptyDir: {}
+---
+# Source: xelon-csi/templates/csidriver.yaml
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: csi.xelon.ch
+spec:
+  attachRequired: true
+  podInfoOnMount: false
