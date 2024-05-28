@@ -1,4 +1,4 @@
-package driver
+package v0
 
 import (
 	"context"
@@ -6,11 +6,13 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
+
+	driverv1 "github.com/Xelon-AG/xelon-csi/internal/driver"
 )
 
-func (d *Driver) GetPluginInfo(_ context.Context, _ *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
+func (d *DriverV0) GetPluginInfo(_ context.Context, _ *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
 	resp := &csi.GetPluginInfoResponse{
-		Name:          DefaultDriverName,
+		Name:          driverv1.DefaultDriverName,
 		VendorVersion: driverVersion,
 	}
 
@@ -22,7 +24,7 @@ func (d *Driver) GetPluginInfo(_ context.Context, _ *csi.GetPluginInfoRequest) (
 	return resp, nil
 }
 
-func (d *Driver) GetPluginCapabilities(_ context.Context, _ *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
+func (d *DriverV0) GetPluginCapabilities(_ context.Context, _ *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
 	resp := &csi.GetPluginCapabilitiesResponse{
 		Capabilities: []*csi.PluginCapability{
 			{
@@ -44,7 +46,7 @@ func (d *Driver) GetPluginCapabilities(_ context.Context, _ *csi.GetPluginCapabi
 }
 
 // Probe allows to verify that the plugin is in a healthy and ready state
-func (d *Driver) Probe(_ context.Context, _ *csi.ProbeRequest) (*csi.ProbeResponse, error) {
+func (d *DriverV0) Probe(_ context.Context, _ *csi.ProbeRequest) (*csi.ProbeResponse, error) {
 	d.log.WithFields(logrus.Fields{
 		"method": "probe",
 	}).Info("probe called")

@@ -1,4 +1,4 @@
-package driver
+package v0
 
 import (
 	"context"
@@ -12,9 +12,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
-	"github.com/Xelon-AG/xelon-csi/driver/helper"
+	driverv1 "github.com/Xelon-AG/xelon-csi/internal/driver"
+	"github.com/Xelon-AG/xelon-csi/internal/driver/v0/helper"
 	"github.com/Xelon-AG/xelon-sdk-go/xelon"
 )
 
@@ -49,8 +50,8 @@ var (
 		Mode: csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
 	}
 
-	xelonStorageUUID = DefaultDriverName + "/storage-uuid"
-	xelonStorageName = DefaultDriverName + "/storage-name"
+	xelonStorageUUID = driverv1.DefaultDriverName + "/storage-uuid"
+	xelonStorageName = driverv1.DefaultDriverName + "/storage-name"
 )
 
 type controllerService struct {
@@ -59,10 +60,10 @@ type controllerService struct {
 	tenantID string
 }
 
-func (d *Driver) initializeControllerService(config *Config) error {
+func (d *DriverV0) initializeControllerService(config *Config) error {
 	d.log.Info("Initializing Xelon controller service")
 
-	userAgent := fmt.Sprintf("%s/%s (%s)", DefaultDriverName, driverVersion, gitCommit)
+	userAgent := fmt.Sprintf("%s/%s (%s)", driverv1.DefaultDriverName, driverVersion, gitCommit)
 
 	opts := []xelon.ClientOption{xelon.WithUserAgent(userAgent)}
 	opts = append(opts, xelon.WithBaseURL(d.config.BaseURL))
@@ -93,7 +94,7 @@ func (d *Driver) initializeControllerService(config *Config) error {
 }
 
 // CreateVolume creates a new volume with the given CreateVolumeRequest.
-func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+func (d *DriverV0) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	if req.Name == "" {
 		return nil, status.Error(codes.InvalidArgument, "Name must be provided")
 	}
@@ -204,7 +205,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	return resp, nil
 }
 
-func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
+func (d *DriverV0) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID must be provided")
 	}
@@ -232,7 +233,7 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 }
 
 // ControllerPublishVolume attaches the given volume to the node
-func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
+func (d *DriverV0) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID must be provided")
 	}
@@ -295,7 +296,7 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 }
 
 // ControllerUnpublishVolume detaches the given volume from the node
-func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
+func (d *DriverV0) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID must be provided")
 	}
@@ -357,7 +358,7 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
-func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
+func (d *DriverV0) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "ValidateVolumeCapabilities Volume ID must be provided")
 	}
@@ -392,18 +393,18 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 	}, nil
 }
 
-func (d *Driver) ListVolumes(_ context.Context, _ *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
+func (d *DriverV0) ListVolumes(_ context.Context, _ *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
 	klog.V(4).Infof("ListVolumes is not yet implemented")
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (d *Driver) GetCapacity(_ context.Context, _ *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
+func (d *DriverV0) GetCapacity(_ context.Context, _ *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
 	klog.V(4).Infof("GetCapacity is not yet implemented")
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // ControllerGetCapabilities get capabilities of the Xelon controller.
-func (d *Driver) ControllerGetCapabilities(_ context.Context, req *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
+func (d *DriverV0) ControllerGetCapabilities(_ context.Context, req *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
 	klog.V(4).Infof("ControllerGetCapabilities called with %v", *req)
 
 	var capabilities []*csi.ControllerServiceCapability
@@ -422,26 +423,26 @@ func (d *Driver) ControllerGetCapabilities(_ context.Context, req *csi.Controlle
 
 // CreateSnapshot will be called by the CO to create a new snapshot from a
 // source volume on behalf of a user.
-func (d *Driver) CreateSnapshot(_ context.Context, _ *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
+func (d *DriverV0) CreateSnapshot(_ context.Context, _ *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
 	klog.V(4).Infof("CreateSnapshot is not yet implemented")
 	return nil, status.Error(codes.Unimplemented, "CreateSnapshot is not yet implemented")
 }
 
 // DeleteSnapshot will be called by the CO to delete a snapshot.
-func (d *Driver) DeleteSnapshot(_ context.Context, _ *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
+func (d *DriverV0) DeleteSnapshot(_ context.Context, _ *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
 	klog.V(4).Infof("DeleteSnapshot is not yet implemented")
 	return nil, status.Error(codes.Unimplemented, "DeleteSnapshot is not yet implemented")
 }
 
 // ListSnapshots returns the information about all snapshots on the storage
 // system within the given parameters regardless of how they were created.
-func (d *Driver) ListSnapshots(_ context.Context, _ *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
+func (d *DriverV0) ListSnapshots(_ context.Context, _ *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
 	klog.V(4).Infof("ListSnapshots is not yet implemented")
 	return nil, status.Error(codes.Unimplemented, "ListSnapshots is not yet implemented")
 }
 
 // ControllerExpandVolume is called from the resizer to increase the volume size.
-func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
+func (d *DriverV0) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
 	volumeID := req.GetVolumeId()
 
 	if volumeID == "" {
@@ -511,9 +512,14 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 }
 
 // ControllerGetVolume gets a specific volume.
-func (d *Driver) ControllerGetVolume(_ context.Context, _ *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
+func (d *DriverV0) ControllerGetVolume(_ context.Context, _ *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
 	klog.V(4).Infof("ControllerGetVolume is not yet implemented")
 	return nil, status.Error(codes.Unimplemented, "ControllerGetVolume is not yet implemented")
+}
+
+func (d *DriverV0) ControllerModifyVolume(_ context.Context, _ *csi.ControllerModifyVolumeRequest) (*csi.ControllerModifyVolumeResponse, error) {
+	klog.V(4).Infof("ControllerModifyVolume is not yet implemented")
+	return nil, status.Error(codes.Unimplemented, "ControllerModifyVolume is not yet implemented")
 }
 
 // extractStorage extracts the storage size in bytes from the given capacity range. If the capacity

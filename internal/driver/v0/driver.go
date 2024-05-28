@@ -1,4 +1,4 @@
-package driver
+package v0
 
 import (
 	"context"
@@ -14,35 +14,26 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+
+	driverv1 "github.com/Xelon-AG/xelon-csi/internal/driver"
 )
-
-const (
-	DefaultDriverName = "csi.xelon.ch"
-
-	ControllerMode Mode = "controller"
-	NodeMode       Mode = "node"
-	AllMode        Mode = "all"
-)
-
-// Mode represents the mode in which the CSI driver started
-type Mode string
 
 // Config is used to configure a new Driver
 type Config struct {
 	BaseURL        string
 	ClientID       string
 	Endpoint       string
-	Mode           Mode
+	Mode           driverv1.Mode
 	MetadataFile   string
 	RescanOnResize bool
 	Token          string
 }
 
-// Driver implements the following CSI interfaces:
+// DriverV0 implements the following CSI interfaces:
 //   - csi.ControllerServer
 //   - csi.NodeServer
 //   - csi.IdentityServer
-type Driver struct {
+type DriverV0 struct {
 	*controllerService
 	*nodeService
 
@@ -52,27 +43,27 @@ type Driver struct {
 	log *logrus.Entry
 }
 
-// NewDriver returns a configured CSI Xelon plugin.
-func NewDriver(config *Config, log *logrus.Entry) (*Driver, error) {
-	log.Infof("Initializing Xelon Persistent Storage CSI Driver, built: %s, git state: %s", GetVersion().BuildDate, GetVersion().GitTreeState)
+// NewDriverV0 returns a configured CSI Xelon plugin.
+func NewDriverV0(config *Config, log *logrus.Entry) (*DriverV0, error) {
+	log.Infof("Initializing legacy Xelon Persistent Storage CSI Driver, built: %s, git state: %s", GetVersion().BuildDate, GetVersion().GitTreeState)
 
-	d := &Driver{config: config}
+	d := &DriverV0{config: config}
 	d.log = log
 
 	switch config.Mode {
-	case ControllerMode:
+	case driverv1.ControllerMode:
 		err := d.initializeControllerService(config)
 		if err != nil {
 			d.log.Errorf("couldn't initialize Xelon controller service, %s", err)
 			return nil, err
 		}
-	case NodeMode:
+	case driverv1.NodeMode:
 		err := d.newNodeService(config)
 		if err != nil {
 			d.log.Errorf("couldn't initialize Xelon node service, %s", err)
 			return nil, err
 		}
-	case AllMode:
+	case driverv1.AllMode:
 		err := d.initializeControllerService(config)
 		if err != nil {
 			d.log.Errorf("couldn't initialize Xelon controller service, %s", err)
@@ -87,12 +78,11 @@ func NewDriver(config *Config, log *logrus.Entry) (*Driver, error) {
 	default:
 		return nil, fmt.Errorf("unknown mode for driver: %s", config.Mode)
 	}
-
 	return d, nil
 }
 
 // Run starts the CSI Xelon plugin on the given endpoint.
-func (d *Driver) Run() error {
+func (d *DriverV0) Run() error {
 	endpointURL, err := url.Parse(d.config.Endpoint)
 	if err != nil {
 		return err
@@ -138,11 +128,11 @@ func (d *Driver) Run() error {
 	csi.RegisterIdentityServer(d.srv, d)
 
 	switch d.config.Mode {
-	case ControllerMode:
+	case driverv1.ControllerMode:
 		csi.RegisterControllerServer(d.srv, d)
-	case NodeMode:
+	case driverv1.NodeMode:
 		csi.RegisterNodeServer(d.srv, d)
-	case AllMode:
+	case driverv1.AllMode:
 		csi.RegisterControllerServer(d.srv, d)
 		csi.RegisterNodeServer(d.srv, d)
 	default:

@@ -1,97 +1,101 @@
 package main
 
 import (
+	"context"
 	"flag"
-	"fmt"
-	"log"
 	"os"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"k8s.io/component-base/featuregate"
+	"k8s.io/component-base/logs"
+	logsapi "k8s.io/component-base/logs/api/v1"
+	"k8s.io/component-base/logs/json"
+	"k8s.io/klog/v2"
 
-	"github.com/Xelon-AG/xelon-csi/driver"
-	"github.com/Xelon-AG/xelon-csi/driver/helper"
+	driverv1 "github.com/Xelon-AG/xelon-csi/internal/driver"
+	driverv0 "github.com/Xelon-AG/xelon-csi/internal/driver/v0"
+)
+
+// command line flags
+var (
+	endpoint        = flag.String("endpoint", "unix:///var/lib/kubelet/plugins/csi.xelon.ch/csi.sock", "CSI endpoint")
+	mode            = flag.String("mode", string(driverv1.AllMode), "The mode in which the CSI driver will be run (all, node, controller)")
+	rescanOnResize  = flag.Bool("rescan-on-resize", true, "Rescan block device and verify its size before expanding the filesystem (node mode)")
+	useLegacyDriver = flag.Bool("use-legacy-driver", false, "Run Xelon CSI driver in legacy mode")
+	xelonBaseURL    = flag.String("xelon-base-url", "https://vdc.xelon.ch/api/service/", "Xelon API URL")
+	xelonClientID   = flag.String("xelon-client-id", "", "Xelon client ID for IP ranges")
+	xelonCloudID    = flag.String("xelon-cloud-id", "", "Xelon client ID for IP ranges")
+	xelonToken      = flag.String("xelon-token", "", "Xelon access token")
+
+	// v0 flags for compatibility
+	logLevel     = flag.String("log-level", "info", "The log level for the CSI driver (deprecated)")
+	metadataFile = flag.String("metadata-file", "/etc/init.d/metadata.json", "The path to the metadata file on Xelon devices (deprecated)")
 )
 
 func main() {
-	var (
-		apiURL         = flag.String("api-url", "https://vdc.xelon.ch/api/service/", "Xelon API URL")
-		clientID       = flag.String("client-id", "", "Xelon client id for IP ranges")
-		endpoint       = flag.String("endpoint", "unix:///var/lib/kubelet/plugins/"+driver.DefaultDriverName+"/csi.sock", "CSI endpoint")
-		logLevel       = flag.String("log-level", "info", "The log level for the CSI driver")
-		metadataFile   = flag.String("metadata-file", "/etc/init.d/metadata.json", "The path to the metadata file on Xelon devices")
-		mode           = flag.String("mode", string(driver.AllMode), "The mode in which the CSI driver will be run (all, node, controller)")
-		rescanOnResize = flag.Bool("rescan-on-resize", true, "Rescan block device and verify its size before expanding the filesystem (node mode)")
-		token          = flag.String("token", "", "Xelon access token")
-		version        = flag.Bool("version", false, "Print the version and exit.")
-	)
+	// logging configuration
+	fg := featuregate.NewFeatureGate()
+	if err := logsapi.RegisterLogFormat(logsapi.JSONLogFormat, json.Factory{}, logsapi.LoggingBetaOptions); err != nil {
+		klog.ErrorS(err, "Failed to register JSON log format")
+	}
+	c := logsapi.NewLoggingConfiguration()
+	if err := logsapi.AddFeatureGates(fg); err != nil {
+		klog.ErrorS(err, "Failed to add feature gates")
+	}
+	logsapi.AddGoFlags(c, flag.CommandLine)
 	flag.Parse()
+	defer logs.FlushLogs()
 
-	if *version {
-		info := driver.GetVersion()
-		fmt.Println("Xelon Persistent Storage CSI Driver")
-		fmt.Printf(" Version:      %s\n", info.DriverVersion)
-		fmt.Printf(" Built:        %s\n", info.BuildDate)
-		fmt.Printf(" Git commit:   %s\n", info.GitCommit)
-		fmt.Printf(" Git state:    %s\n", info.GitTreeState)
-		fmt.Printf(" Go version:   %s\n", info.GoVersion)
-		fmt.Printf(" OS/Arch:      %s\n", info.Platform)
-		os.Exit(0)
+	if err := logsapi.ValidateAndApply(c, fg); err != nil {
+		klog.ErrorS(err, "Failed to validate and apply logging configuration")
 	}
 
-	logger := initializeLogging(*logLevel, *mode, *metadataFile)
-	d, err := driver.NewDriver(
-		&driver.Config{
-			BaseURL:        *apiURL,
-			ClientID:       *clientID,
+	// handling legacy driver mode
+	if *useLegacyDriver {
+		klog.V(0).InfoS("Starting legacy Xelon CSI driver. This mode will be deprecated soon.")
+		logger := driverv0.InitializeLogging(*logLevel, *mode, *metadataFile)
+		d, err := driverv0.NewDriverV0(
+			&driverv0.Config{
+				BaseURL:        *xelonBaseURL,
+				ClientID:       *xelonClientID,
+				Endpoint:       *endpoint,
+				Mode:           driverv1.Mode(*mode),
+				MetadataFile:   *metadataFile,
+				RescanOnResize: *rescanOnResize,
+				Token:          *xelonToken,
+			},
+			logger)
+		if err != nil {
+			logger.Fatalln(err)
+		}
+
+		if err := d.Run(); err != nil {
+			logger.Fatalln(err)
+		}
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	d, err := driverv1.NewDriver(
+		ctx,
+		&driverv1.Options{
 			Endpoint:       *endpoint,
-			Mode:           driver.Mode(*mode),
-			MetadataFile:   *metadataFile,
+			Mode:           driverv1.Mode(*mode),
 			RescanOnResize: *rescanOnResize,
-			Token:          *token,
+			XelonBaseURL:   *xelonBaseURL,
+			XelonClientID:  *xelonClientID,
+			XelonCloudID:   *xelonCloudID,
+			XelonToken:     *xelonToken,
 		},
-		logger)
+	)
 	if err != nil {
-		logger.Fatalln(err)
+		klog.ErrorS(err, "Failed to initialize driver")
+		os.Exit(255)
 	}
 
 	if err := d.Run(); err != nil {
-		logger.Fatalln(err)
+		klog.ErrorS(err, "Could not run driver")
+		os.Exit(255)
 	}
-}
-
-func initializeLogging(logLevel, mode, metadataFile string) *logrus.Entry {
-	var logger = logrus.New()
-	logger.SetFormatter(&logrus.JSONFormatter{
-		TimestampFormat: time.RFC3339Nano,
-	})
-
-	switch logLevel {
-	case "", "info":
-		logger.SetLevel(logrus.InfoLevel)
-	case "debug":
-		logger.SetLevel(logrus.DebugLevel)
-	case "warn":
-		logger.SetLevel(logrus.WarnLevel)
-	}
-
-	localVMID, err := helper.GetDeviceLocalVMID(metadataFile)
-	if err != nil {
-		log.Printf("Couldn't get localVMID from Xelon device, %v\n", err)
-		localVMID = "unknown"
-	}
-
-	cloudID, err := helper.GetDeviceCloudID(metadataFile)
-	if err != nil {
-		log.Printf("Couldn't get cloudID from Xelon device (use 1 as default), %v\n", err)
-		cloudID = "1"
-	}
-
-	return logger.WithFields(logrus.Fields{
-		"component": driver.DefaultDriverName,
-		"cloud_id":  cloudID,
-		"device":    localVMID,
-		"service":   mode,
-		"version":   driver.GetVersion().DriverVersion,
-	})
 }

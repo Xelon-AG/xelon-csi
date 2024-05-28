@@ -1,4 +1,4 @@
-package driver
+package v0
 
 import (
 	"context"
@@ -10,11 +10,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"k8s.io/mount-utils"
 	"k8s.io/utils/exec"
 
-	"github.com/Xelon-AG/xelon-csi/driver/helper"
+	"github.com/Xelon-AG/xelon-csi/internal/driver/v0/helper"
 )
 
 const diskUUIDPath = "/dev/disk/by-uuid"
@@ -26,7 +26,7 @@ type nodeService struct {
 	nodeName string
 }
 
-func (d *Driver) newNodeService(config *Config) error {
+func (d *DriverV0) newNodeService(config *Config) error {
 	d.log.Info("Initializing Xelon node service...")
 
 	localVMID, err := helper.GetDeviceLocalVMID(config.MetadataFile)
@@ -53,7 +53,7 @@ func (d *Driver) newNodeService(config *Config) error {
 // called by the CO before NodePublishVolume and is used to temporary mount the
 // volume to a staging path. Once mounted, NodePublishVolume will make sure to
 // mount it to the appropriate path
-func (d *Driver) NodeStageVolume(_ context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
+func (d *DriverV0) NodeStageVolume(_ context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
 	if req.VolumeId == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "Volume ID must be provided")
 	}
@@ -136,7 +136,7 @@ func (d *Driver) NodeStageVolume(_ context.Context, req *csi.NodeStageVolumeRequ
 }
 
 // NodeUnstageVolume unstages the volume from the staging path
-func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
+func (d *DriverV0) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID must be provided")
 	}
@@ -179,7 +179,7 @@ func (d *Driver) NodeUnstageVolume(_ context.Context, req *csi.NodeUnstageVolume
 }
 
 // NodePublishVolume mounts the volume mounted to the staging path to the target path
-func (d *Driver) NodePublishVolume(_ context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+func (d *DriverV0) NodePublishVolume(_ context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "NodePublishVolume Volume ID must be provided")
 	}
@@ -234,7 +234,7 @@ func (d *Driver) NodePublishVolume(_ context.Context, req *csi.NodePublishVolume
 }
 
 // NodeUnpublishVolume unmounts the volume from the target path
-func (d *Driver) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+func (d *DriverV0) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID must be provided")
 	}
@@ -270,7 +270,7 @@ func (d *Driver) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVo
 }
 
 // NodeGetCapabilities returns the supported capabilities of the node server
-func (d *Driver) NodeGetCapabilities(_ context.Context, _ *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
+func (d *DriverV0) NodeGetCapabilities(_ context.Context, _ *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
 	return &csi.NodeGetCapabilitiesResponse{
 		Capabilities: []*csi.NodeServiceCapability{
 			{
@@ -300,7 +300,7 @@ func (d *Driver) NodeGetCapabilities(_ context.Context, _ *csi.NodeGetCapabiliti
 
 // NodeGetInfo returns the supported capabilities of the node server. The result of this
 // function will be used by the CO in ControllerPublishVolume.
-func (d *Driver) NodeGetInfo(_ context.Context, _ *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
+func (d *DriverV0) NodeGetInfo(_ context.Context, _ *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
 	d.log.WithFields(logrus.Fields{
 		"node_name": d.nodeName,
 		"method":    "node_get_info",
@@ -312,7 +312,7 @@ func (d *Driver) NodeGetInfo(_ context.Context, _ *csi.NodeGetInfoRequest) (*csi
 }
 
 // NodeGetVolumeStats returns the volume capacity statistics available for the given volume.
-func (d *Driver) NodeGetVolumeStats(_ context.Context, req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
+func (d *DriverV0) NodeGetVolumeStats(_ context.Context, req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
 	if req.VolumeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "NodeGetVolumeStats Volume ID must be provided")
 	}
@@ -371,7 +371,7 @@ func (d *Driver) NodeGetVolumeStats(_ context.Context, req *csi.NodeGetVolumeSta
 }
 
 // NodeExpandVolume expands the given volume
-func (d *Driver) NodeExpandVolume(_ context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
+func (d *DriverV0) NodeExpandVolume(_ context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
 	volumeID := req.GetVolumeId()
 	if volumeID == "" {
 		return nil, status.Error(codes.InvalidArgument, "NodeExpandVolume volume ID not provided")
