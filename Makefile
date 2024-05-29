@@ -1,6 +1,6 @@
 # Project variables
 PROJECT_NAME := xelon-csi
-IMAGE_NAME := xelonag/xelon-csi
+IMAGE_NAME ?= xelonag/xelon-csi
 
 # Build variables
 .DEFAULT_GOAL = test
