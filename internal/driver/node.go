@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"golang.org/x/sys/unix"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
@@ -27,7 +28,7 @@ var (
 	nodeCapabilities = []csi.NodeServiceCapability_RPC_Type{
 		csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
 		csi.NodeServiceCapability_RPC_EXPAND_VOLUME,
-		// csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
+		csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
 	}
 )
 
@@ -260,9 +261,64 @@ func (d *Driver) NodeUnpublishVolume(_ context.Context, req *csi.NodeUnpublishVo
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
-func (d *Driver) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
-	klog.FromContext(ctx).Info("NodeGetVolumeStats called")
-	return &csi.NodeGetVolumeStatsResponse{}, nil
+func (d *Driver) NodeGetVolumeStats(_ context.Context, req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "volume id not provided")
+	}
+	if req.VolumePath == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "volume path not provided")
+	}
+
+	klog.V(5).InfoS("Determining if target is not a mount point",
+		"method", "NodeGetVolumeStats",
+		"node_name", d.nodeName,
+		"volume_id", req.VolumeId,
+		"volume_path", req.VolumePath,
+	)
+	notMnt, err := d.mounter.IsLikelyNotMountPoint(req.VolumePath)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	if notMnt {
+		return nil, status.Errorf(codes.Internal, "volume path is not mounted: %s", req.VolumePath)
+	}
+
+	fs := &unix.Statfs_t{}
+	err = unix.Statfs(req.VolumePath, fs)
+	if err != nil {
+		klog.ErrorS(err, "Failed to get fs info on path",
+			"method", "NodeGetVolumeStats",
+			"node_name", d.nodeName,
+			"volume_id", req.VolumeId,
+			"volume_path", req.VolumePath,
+		)
+		return nil, status.Errorf(codes.Internal, "failed to get fs info on path %s: %v", req.VolumePath, err)
+	}
+
+	totalBytes := fs.Blocks * uint64(fs.Bsize)
+	availableBytes := fs.Bfree * uint64(fs.Bsize)
+	usedBytes := totalBytes - availableBytes
+
+	totalInodes := fs.Files
+	availableInodes := fs.Ffree
+	usedInodes := totalInodes - availableInodes
+
+	return &csi.NodeGetVolumeStatsResponse{
+		Usage: []*csi.VolumeUsage{
+			{
+				Available: int64(availableBytes),
+				Total:     int64(totalBytes),
+				Used:      int64(usedBytes),
+				Unit:      csi.VolumeUsage_BYTES,
+			},
+			{
+				Available: int64(availableInodes),
+				Total:     int64(totalInodes),
+				Used:      int64(usedInodes),
+				Unit:      csi.VolumeUsage_INODES,
+			},
+		},
+	}, nil
 }
 
 func (d *Driver) NodeExpandVolume(_ context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
