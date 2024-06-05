@@ -61,7 +61,7 @@ build:
 .PHONE: build-docker-dev
 build-docker-dev: build
 	@echo "==> Building docker image $(IMAGE_NAME)..."
-	@docker build --build-arg VERSION=$(VERSION) --tag $(IMAGE_NAME):dev --file Dockerfile build
+	@docker build --build-arg VERSION=$(VERSION) --tag $(IMAGE_NAME):dev --file Dockerfile .
 
 
 ## release-docker-dev: Release development docker image.
