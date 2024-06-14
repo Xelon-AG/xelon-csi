@@ -1,0 +1,5 @@
+Xelon CSI Driver {{ .Chart.AppVersion }} was deployed in namespace {{ .Release.Namespace }}.
+
+To verify that xelon-csi has successfully started, run:
+    kubectl -n kube-system logs --selector app=xelon-csi-controller
+    kubectl -n kube-system logs --selector app=xelon-csi-node

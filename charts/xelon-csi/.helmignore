@@ -1,35 +1,24 @@
 #################################
-# Compiled sources              #
+# Git & GitHub files             #
 #################################
-build/
-
-#################################
-# Helm files                  #
-#################################
-/charts/xelon-csi/values-dev.yaml
-
-#################################
-# Golang files                  #
-#################################
-/tools/bin/
-.bin/
-*.exe
-*.dll
-*.so
-*.dylib
-*.test
-*.out
+.git/
+.github/
+.gitignore
 
 #################################
 # IDE generated files           #
 #################################
 .idea/
+.vscode/
+.project
 *.iml
 
 #################################
 # Logs and temp files           #
 #################################
+*.bak
 *.log
+*.orig
 *.swp
 *~
 
