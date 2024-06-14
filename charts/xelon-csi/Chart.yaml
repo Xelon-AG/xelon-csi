@@ -1,0 +1,7 @@
+apiVersion: v2
+name: xelon-csi
+version: 0.1.0
+description: A Helm Chart for the CSI Driver on Xelon HQ
+type: application
+
+appVersion: "1.0.0"

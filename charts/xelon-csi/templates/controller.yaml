@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: xelon-csi-controller
+  namespace: {{ .Release.Namespace }}
+spec:
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: xelon-csi-controller
+  serviceName: "xelon-csi"
+  replicas: {{ .Values.controller.replicaCount }}
+  template:
+    metadata:
+      labels:
+        app: xelon-csi-controller
+        role: xelon-csi
+    spec:
+      priorityClassName: system-cluster-critical
+      serviceAccountName: {{ .Values.controller.serviceAccount.name }}
+      containers:
+        - name: xelon-csi-plugin
+          image: {{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag }}
+          imagePullPolicy: {{ .Values.controller.image.pullPolicy }}
+          args:
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--xelon-base-url=$(XELON_BASE_URL)"
+            - "--xelon-client-id=$(XELON_CLIENT_ID)"
+            - "--xelon-cloud-id=$(XELON_CLOUD_ID)"
+            - "--xelon-token=$(XELON_TOKEN)"
+            - "--logging-format={{ .Values.controller.loggingFormat }}"
+            - "--mode=controller"
+            - "--v={{ .Values.controller.logLevel }}"
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: XELON_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: xelon-api-credentials
+                  key: baseUrl
+            - name: XELON_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: xelon-api-credentials
+                  key: clientId
+            - name: XELON_CLOUD_ID
+              valueFrom:
+                secretKeyRef:
+                  name: xelon-api-credentials
+                  key: cloudId
+            - name: XELON_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: xelon-api-credentials
+                  key: token
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: csi-provisioner
+          image: {{ .Values.sidecars.provisioner.image.repository }}:{{ .Values.sidecars.provisioner.image.tag }}
+          imagePullPolicy: {{ .Values.sidecars.provisioner.image.pullPolicy }}
+          args:
+            - "--csi-address=$(CSI_ADDRESS)"
+            - "--default-fstype=ext4"
+            - "--extra-create-metadata"
+            - "--retry-interval-start=5s"
+            - "--timeout=120s"
+            - "--v={{ .Values.sidecars.provisioner.logLevel }}"
+            - "--worker-threads=1"
+          env:
+            - name: CSI_ADDRESS
+              value: /csi/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: csi-attacher
+          image: {{ .Values.sidecars.attacher.image.repository }}:{{ .Values.sidecars.attacher.image.tag }}
+          imagePullPolicy: {{ .Values.sidecars.attacher.image.pullPolicy }}
+          args:
+            - "--csi-address=$(CSI_ADDRESS)"
+            - "--timeout=60s"
+            - "--v={{ .Values.sidecars.attacher.logLevel }}"
+            - "--worker-threads=1"
+          env:
+            - name: CSI_ADDRESS
+              value: /csi/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: csi-resizer
+          image: {{ .Values.sidecars.resizer.image.repository }}:{{ .Values.sidecars.resizer.image.tag }}
+          imagePullPolicy: {{ .Values.sidecars.resizer.image.pullPolicy }}
+          args:
+            - "--csi-address=$(CSI_ADDRESS)"
+            - "--handle-volume-inuse-error=false"
+            - "--timeout=60s"
+            - "--v={{ .Values.sidecars.resizer.logLevel }}"
+          env:
+            - name: CSI_ADDRESS
+              value: /csi/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+      volumes:
+        - name: socket-dir
+          emptyDir: {}

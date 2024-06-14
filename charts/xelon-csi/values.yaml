@@ -1,0 +1,61 @@
+nameOverride: ""
+fullnameOverride: ""
+
+controller:
+  image:
+    repository: xelonag/xelon-csi
+    tag: "dev"
+    pullPolicy: Always
+  loggingFormat: text
+  logLevel: 2
+  replicaCount: 1
+  serviceAccount:
+    create: true
+    name: "xelon-csi-controller-sa"
+    annotations: {}
+
+node:
+  image:
+    repository: xelonag/xelon-csi
+    tag: "dev"
+    pullPolicy: Always
+  loggingFormat: text
+  logLevel: 2
+  serviceAccount:
+    create: true
+    name: "xelon-csi-node-sa"
+    annotations: {}
+
+sidecars:
+  attacher:
+    image:
+      repository: registry.k8s.io/sig-storage/csi-attacher
+      tag: "v4.4.0"
+      pullPolicy: IfNotPresent
+    logLevel: 5
+  nodeDriverRegistrar:
+    image:
+      repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
+      tag: "v2.9.0"
+      pullPolicy: IfNotPresent
+    logLevel: 5
+  provisioner:
+    image:
+      repository: registry.k8s.io/sig-storage/csi-provisioner
+      tag: "v3.6.0"
+      pullPolicy: IfNotPresent
+    logLevel: 5
+  resizer:
+    image:
+      repository: registry.k8s.io/sig-storage/csi-resizer
+      tag: "v1.9.0"
+      pullPolicy: IfNotPresent
+    logLevel: 5
+
+xelonSecret:
+  create: false
+  baseUrl: "https://hq.xelon.ch/api/service/"
+  clientId: ""
+  cloudId: ""
+  kubernetesClusterId: ""
+  token: ""
