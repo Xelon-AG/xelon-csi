@@ -1,6 +1,11 @@
 # syntax=docker/dockerfile:1
 FROM golang:1.22 AS builder
 
+ARG GIT_COMMIT
+ARG GIT_TREE_STATE
+ARG SOURCE_DATE_EPOCH
+ARG VERSION
+
 ENV CGO_ENABLED=0
 
 # copy manifest files only to cache layer with dependencies
@@ -12,7 +17,13 @@ COPY cmd/ cmd/
 COPY internal/ internal/
 
 # build
-RUN go build -o xelon-csi -ldflags="-s -w" -trimpath cmd/xelon-csi/main.go
+RUN go build -trimpath \
+    -ldflags="-s -w \
+    -X github.com/Xelon-AG/xelon-csi/internal/driver.gitCommit=${GIT_COMMIT:-none} \
+    -X github.com/Xelon-AG/xelon-csi/internal/driver.gitTreeState=${GIT_TREE_STATE:-none} \
+    -X github.com/Xelon-AG/xelon-csi/internal/driver.sourceDateEpoch=${SOURCE_DATE_EPOCH:-0} \
+    -X github.com/Xelon-AG/xelon-csi/internal/driver.version=${VERSION:-local}" \
+    -o xelon-csi cmd/xelon-csi/main.go
 
 
 

@@ -3,5 +3,6 @@ build/
 deploy/
 test/
 tools/
+Makefile
 README.md
 .golangci.yaml

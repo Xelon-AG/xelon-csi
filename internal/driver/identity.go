@@ -12,7 +12,7 @@ func (d *Driver) GetPluginInfo(_ context.Context, req *csi.GetPluginInfoRequest)
 
 	return &csi.GetPluginInfoResponse{
 		Name:          DefaultDriverName,
-		VendorVersion: "wip",
+		VendorVersion: GetVersion(),
 	}, nil
 }
 

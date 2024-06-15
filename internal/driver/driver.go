@@ -49,7 +49,7 @@ type Driver struct {
 }
 
 func NewDriver(ctx context.Context, opts *Options) (*Driver, error) {
-	klog.InfoS("Driver information", "driver", DefaultDriverName, "version", "dev")
+	klog.InfoS("Driver information", "driver", DefaultDriverName, "version_info", GetVersionInfo())
 
 	d := &Driver{
 		endpoint: opts.Endpoint,

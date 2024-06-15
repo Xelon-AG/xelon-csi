@@ -61,7 +61,7 @@ type controllerService struct {
 func newControllerService(ctx context.Context, opts *Options) (*controllerService, error) {
 	klog.V(2).InfoS("Initialize controller service")
 
-	xelonClient, err := cloud.NewXelonClient(opts.XelonToken, opts.XelonClientID, opts.XelonBaseURL)
+	xelonClient, err := cloud.NewXelonClient(opts.XelonToken, opts.XelonClientID, opts.XelonBaseURL, UserAgent())
 	if err != nil {
 		return nil, err
 	}
