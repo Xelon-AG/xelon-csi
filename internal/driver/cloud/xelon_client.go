@@ -8,7 +8,7 @@ import (
 
 type ClientOptions xelon.ClientOption
 
-func NewXelonClient(token, clientID, baseURL string) (*xelon.Client, error) {
+func NewXelonClient(token, clientID, baseURL, userAgent string) (*xelon.Client, error) {
 	if token == "" {
 		return nil, errors.New("token must not be empty")
 	}
@@ -22,7 +22,7 @@ func NewXelonClient(token, clientID, baseURL string) (*xelon.Client, error) {
 	var opts []xelon.ClientOption
 	opts = append(opts, xelon.WithBaseURL(baseURL))
 	opts = append(opts, xelon.WithClientID(clientID))
-	opts = append(opts, xelon.WithUserAgent("xelon-csi"))
+	opts = append(opts, xelon.WithUserAgent(userAgent))
 
 	client := xelon.NewClient(token, opts...)
 	return client, nil

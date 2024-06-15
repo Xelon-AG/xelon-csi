@@ -7,17 +7,17 @@ IMAGE_NAME ?= xelonag/xelon-csi
 BUILD_DIR := build
 
 VERSION ?= $(shell git describe --always)
-COMMIT ?= $(shell git rev-parse HEAD)
+GIT_COMMIT ?= $(shell git rev-parse HEAD)
 ifeq ($(strip $(shell git status --porcelain 2>/dev/null)),)
   GIT_TREE_STATE=clean
 else
   GIT_TREE_STATE=dirty
 endif
-BUILD_DATE ?= $(shell date -Is)
-LDFLAGS ?= -X github.com/Xelon-AG/xelon-csi/driver.driverVersion=${VERSION}
-LDFLAGS := $(LDFLAGS) -X github.com/Xelon-AG/xelon-csi/driver.gitCommit=${COMMIT}
-LDFLAGS := $(LDFLAGS) -X github.com/Xelon-AG/xelon-csi/driver.gitTreeState=${GIT_TREE_STATE}
-LDFLAGS := $(LDFLAGS) -X github.com/Xelon-AG/xelon-csi/driver.buildDate=${BUILD_DATE}
+SOURCE_DATE_EPOCH ?= $(shell git log -1 --pretty=%ct)
+LDFLAGS ?= -X github.com/Xelon-AG/xelon-csi/internal/driver.gitCommit=${GIT_COMMIT}
+LDFLAGS := $(LDFLAGS) -X github.com/Xelon-AG/xelon-csi/internal/driver.gitTreeState=${GIT_TREE_STATE}
+LDFLAGS := $(LDFLAGS) -X github.com/Xelon-AG/xelon-csi/internal/driver.sourceDateEpoch=${SOURCE_DATE_EPOCH}
+LDFLAGS := $(LDFLAGS) -X github.com/Xelon-AG/xelon-csi/internal/driver.version=${VERSION}
 
 
 ## tools: Install required tooling.
@@ -53,22 +53,42 @@ test:
 .PHONE: build
 build:
 	@echo "==> Building binary..."
-	@echo "    running go build for GOOS=linux GOARCH=amd64"
-	@GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(PROJECT_NAME) cmd/xelon-csi/main.go
+	@echo "    running go build"
+	@CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(PROJECT_NAME) cmd/xelon-csi/main.go
 
 
-## build-docker-dev: Build docker image with included binary.
-.PHONE: build-docker-dev
-build-docker-dev: build
+## build-docker: Build docker image with included binary.
+.PHONE: build-docker
+build-docker:
 	@echo "==> Building docker image $(IMAGE_NAME)..."
-	@docker build --build-arg VERSION=$(VERSION) --tag $(IMAGE_NAME):dev --file Dockerfile .
+	@docker build \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		--build-arg GIT_TREE_STATE=$(GIT_TREE_STATE) \
+		--build-arg SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) \
+		--build-arg VERSION=$(VERSION) \
+		--tag $(IMAGE_NAME) --file Dockerfile .
 
 
 ## release-docker-dev: Release development docker image.
 .PHONE: release-docker-dev
-release-docker-dev: build-docker-dev
+release-docker-dev: build-docker
+	@echo "==> Tagging docker image $(IMAGE_NAME):dev..."
+	@docker tag $(IMAGE_NAME) $(IMAGE_NAME):dev
 	@echo "==> Releasing development docker image $(IMAGE_NAME):dev..."
 	@docker push $(IMAGE_NAME):dev
+
+
+## release-docker: Release docker image.
+.PHONE: release-docker
+release-docker: build-docker
+	@echo "==> Tagging docker image $(IMAGE_NAME):latest..."
+	@docker tag $(IMAGE_NAME) $(IMAGE_NAME):latest
+	@echo "==> Releasing docker image $(IMAGE_NAME):latest..."
+	@docker push $(IMAGE_NAME):latest
+	@echo "==> Tagging docker image $(IMAGE_NAME):$(VERSION)..."
+	@docker tag $(IMAGE_NAME) $(IMAGE_NAME):$(VERSION)
+	@echo "==> Releasing docker image $(IMAGE_NAME):$(VERSION)..."
+	@docker push $(IMAGE_NAME):$(VERSION)
 
 
 help: Makefile
