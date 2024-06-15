@@ -53,8 +53,8 @@ test:
 .PHONE: build
 build:
 	@echo "==> Building binary..."
-	@echo "    running go build"
-	@CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(PROJECT_NAME) cmd/xelon-csi/main.go
+	@echo "    running go build for GOOS=linux GOARCH=amd64"
+	@GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(PROJECT_NAME) cmd/xelon-csi/main.go
 
 
 ## build-docker: Build docker image with included binary.
