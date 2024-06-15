@@ -1,53 +1,31 @@
 project_name: xelon-csi
 
-archives:
-  - files:
-      - LICENSE
-      - README.md
-    format: zip
-    name_template: '{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}'
-    rlcp: true
-
 before:
   hooks:
     - go mod tidy
 
 builds:
-  - binary: '{{ .ProjectName }}'
-    flags:
-      - -trimpath
-    goarch:
-      - amd64
-    goos:
-      - linux
-    ldflags:
-      - -s -w
-      - -X github.com/Xelon-AG/xelon-csi/driver.driverVersion={{ .Version }}
-      - -X github.com/Xelon-AG/xelon-csi/driver.gitCommit={{ .Commit }}
-      - -X github.com/Xelon-AG/xelon-csi/driver.gitTreeState=clean
-      - -X github.com/Xelon-AG/xelon-csi/driver.buildDate={{ .Date }}
-    main: cmd/xelon-csi/main.go
-    mod_timestamp: '{{ .CommitTimestamp }}'
+  - skip: true
 
 changelog:
-  skip: true
-
-checksum:
-  name_template: '{{ .ProjectName }}_v{{ .Version }}_SHA256SUMS'
-  algorithm: sha256
-
-dist: build
-
-dockers:
-  - dockerfile: Dockerfile
-    goarch: amd64
-    goos: linux
-    image_templates:
-      - "xelonag/xelon-csi:latest"
-      - "xelonag/xelon-csi:{{ .Tag }}"
-
-env:
-  - CGO_ENABLED=0
+  sort: asc
+  groups:
+    - title: "Features"
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: 'Bug fixes'
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: "Others"
+      order: 999
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^Merge pull request"
+      - "^Release"
 
 release:
-  draft: false
+  github:
+    owner: Xelon-AG
+    name: xelon-csi
