@@ -37,9 +37,9 @@ jobs:
 #          repository: xelonag/xelon-csi
 #          short-description: "Xelon Persistent Storage CSI Driver"
 #
-#      - name: GoReleaser
-#        uses: goreleaser/goreleaser-action@v6
-#        with:
-#          args: release -f .github/goreleaser.yaml --clean
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          args: release -f .github/goreleaser.yaml --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
