@@ -96,7 +96,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	if req.Name == "" {
 		return nil, status.Error(codes.InvalidArgument, "volume name not provided")
 	}
-	if req.VolumeCapabilities == nil || len(req.VolumeCapabilities) == 0 {
+	if len(req.VolumeCapabilities) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "volume capabilities not provided")
 	}
 
@@ -584,7 +584,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	)
 	apiResponse, _, err := d.xelon.PersistentStorages.Extend(ctx, req.VolumeId, extendRequest)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	klog.V(5).InfoS("Extended persistent storage",
 		"method", "ControllerExpandVolume",

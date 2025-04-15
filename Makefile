@@ -5,6 +5,8 @@ IMAGE_NAME ?= xelonag/xelon-csi
 # Build variables
 .DEFAULT_GOAL = test
 BUILD_DIR := build
+TOOLS_DIR := $(shell pwd)/tools
+TOOLS_BIN_DIR := ${TOOLS_DIR}/bin
 
 VERSION ?= $(shell git describe --always)
 GIT_COMMIT ?= $(shell git rev-parse HEAD)
@@ -24,7 +26,7 @@ LDFLAGS := $(LDFLAGS) -X github.com/Xelon-AG/xelon-csi/internal/driver.version=$
 .PHONY: tools
 tools:
 	@echo "==> Installing required tooling..."
-	@cd tools && go install github.com/golangci/golangci-lint/cmd/golangci-lint
+	@cd ${TOOLS_DIR} && GOBIN=${TOOLS_BIN_DIR} go install github.com/golangci/golangci-lint/cmd/golangci-lint
 
 
 ## clean: Delete the build directory.
@@ -38,7 +40,7 @@ clean:
 .PHONY: lint
 lint:
 	@echo "==> Linting code with 'golangci-lint'..."
-	@golangci-lint run ./...
+	@${TOOLS_BIN_DIR}/golangci-lint run
 
 
 ## test: Run all unit tests.

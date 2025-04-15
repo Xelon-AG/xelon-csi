@@ -98,7 +98,7 @@ func (d *DriverV0) CreateVolume(ctx context.Context, req *csi.CreateVolumeReques
 	if req.Name == "" {
 		return nil, status.Error(codes.InvalidArgument, "Name must be provided")
 	}
-	if req.VolumeCapabilities == nil || len(req.VolumeCapabilities) == 0 {
+	if len(req.VolumeCapabilities) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume capabilities must be provided")
 	}
 	if !isValidCapabilities(req.VolumeCapabilities) {
