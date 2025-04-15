@@ -198,7 +198,7 @@ spec:
       serviceAccountName: xelon-csi-node-sa
       containers:
         - name: xelon-csi-plugin
-          image: xelonag/xelon-csi:v1.0.0
+          image: xelonag/xelon-csi:v1.0.1
           imagePullPolicy: Always
           args:
             - "--endpoint=$(CSI_ENDPOINT)"
@@ -280,7 +280,7 @@ spec:
       serviceAccountName: xelon-csi-controller-sa
       containers:
         - name: xelon-csi-plugin
-          image: xelonag/xelon-csi:v1.0.0
+          image: xelonag/xelon-csi:v1.0.1
           imagePullPolicy: Always
           args:
             - "--endpoint=$(CSI_ENDPOINT)"
