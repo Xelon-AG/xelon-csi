@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM golang:1.22 AS builder
+FROM golang:1.24 AS builder
 
 ARG GIT_COMMIT
 ARG GIT_TREE_STATE
@@ -27,7 +27,7 @@ RUN go build -trimpath \
 
 
 
-FROM alpine:3.20 AS production
+FROM alpine:3.21 AS production
 
 ARG VERSION
 

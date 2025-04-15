@@ -1,8 +1,6 @@
 module github.com/Xelon-AG/xelon-csi
 
-go 1.22.0
-
-toolchain go1.22.3
+go 1.24
 
 require (
 	github.com/Xelon-AG/xelon-sdk-go v0.13.3
