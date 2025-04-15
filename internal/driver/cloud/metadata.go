@@ -9,9 +9,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 )
 
-const LabelXelonLocalVMID = "kubernetes.xelon.ch/localvmid"
+const (
+	LabelXelonLocalVMIDDeprecated = "kubernetes.xelon.ch/localvmid"
+	LabelXelonLocalVMID           = "node.kubernetes.io/localvmid"
+)
 
 // Metadata is info about the Xelon Device on which driver is running
 type Metadata struct {
@@ -42,6 +46,16 @@ func RetrieveMetadata(ctx context.Context) (*Metadata, error) {
 	}
 	if localVMID, ok := node.GetLabels()[LabelXelonLocalVMID]; ok {
 		metadata.LocalVMID = localVMID
+	}
+	// fallback to verify old label format
+	if metadata.LocalVMID == "" {
+		if localVMID, ok := node.GetLabels()[LabelXelonLocalVMIDDeprecated]; ok {
+			klog.V(2).InfoS("Fallback to get localVMID via deprecated label",
+				"label", LabelXelonLocalVMIDDeprecated,
+				"localvmid", localVMID,
+			)
+			metadata.LocalVMID = localVMID
+		}
 	}
 
 	return metadata, nil
