@@ -584,7 +584,7 @@ func (d *Driver) ControllerExpandVolume(ctx context.Context, req *csi.Controller
 	)
 	apiResponse, _, err := d.xelon.PersistentStorages.Extend(ctx, req.VolumeId, extendRequest)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	klog.V(5).InfoS("Extended persistent storage",
 		"method", "ControllerExpandVolume",

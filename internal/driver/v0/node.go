@@ -125,7 +125,7 @@ func (d *DriverV0) NodeStageVolume(_ context.Context, req *csi.NodeStageVolumeRe
 	if !mounted {
 		err := d.mounter.Mount(source, target, options...)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, err.Error())
+			return nil, status.Error(codes.Internal, err.Error())
 		}
 	} else {
 		log.Info("source device is already mounted to the target path")
