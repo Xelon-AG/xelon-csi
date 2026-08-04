@@ -52,7 +52,7 @@ test:
 
 
 ## build: Build binary for linux/amd64 system.
-.PHONE: build
+.PHONY: build
 build:
 	@echo "==> Building binary..."
 	@echo "    running go build for GOOS=linux GOARCH=amd64"
@@ -60,7 +60,7 @@ build:
 
 
 ## build-docker: Build docker image with included binary.
-.PHONE: build-docker
+.PHONY: build-docker
 build-docker:
 	@echo "==> Building docker image $(IMAGE_NAME)..."
 	@docker build \
@@ -72,7 +72,7 @@ build-docker:
 
 
 ## release-docker-dev: Release development docker image.
-.PHONE: release-docker-dev
+.PHONY: release-docker-dev
 release-docker-dev: build-docker
 	@echo "==> Tagging docker image $(IMAGE_NAME):dev..."
 	@docker tag $(IMAGE_NAME) $(IMAGE_NAME):dev
@@ -81,7 +81,7 @@ release-docker-dev: build-docker
 
 
 ## release-docker: Release docker image.
-.PHONE: release-docker
+.PHONY: release-docker
 release-docker: build-docker
 	@echo "==> Tagging docker image $(IMAGE_NAME):latest..."
 	@docker tag $(IMAGE_NAME) $(IMAGE_NAME):latest
