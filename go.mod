@@ -5,8 +5,6 @@ go 1.24
 require (
 	github.com/Xelon-AG/xelon-sdk-go v0.13.3
 	github.com/container-storage-interface/spec v1.9.0
-	github.com/golang/protobuf v1.5.4
-	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/sys v0.18.0
 	google.golang.org/grpc v1.58.3
 	k8s.io/apimachinery v0.28.9
@@ -29,6 +27,7 @@ require (
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
