@@ -308,7 +308,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: xelon-api-credentials
-                  key: cloudId
+                  key: cloudIdentifier
             - name: XELON_TOKEN
               valueFrom:
                 secretKeyRef:
