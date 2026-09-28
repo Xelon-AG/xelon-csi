@@ -54,8 +54,8 @@ sidecars:
 
 xelonSecret:
   create: false
-  baseUrl: "https://hq.xelon.ch/api/service/"
+  baseUrl: "https://hq.xelon.ch/api/v2/"
   clientId: ""
-  cloudId: ""
+  cloudIdentifier: ""
   kubernetesClusterId: ""
   token: ""

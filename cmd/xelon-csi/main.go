@@ -20,9 +20,9 @@ var (
 	endpoint       = flag.String("endpoint", "unix:///var/lib/kubelet/plugins/csi.xelon.ch/csi.sock", "CSI endpoint")
 	mode           = flag.String("mode", string(driverv1.AllMode), "The mode in which the CSI driver will be run (all, node, controller)")
 	rescanOnResize = flag.Bool("rescan-on-resize", true, "Rescan block device and verify its size before expanding the filesystem (node mode)")
-	xelonBaseURL   = flag.String("xelon-base-url", "https://vdc.xelon.ch/api/service/", "Xelon API URL")
+	xelonBaseURL   = flag.String("xelon-base-url", "https://hq.xelon.ch/api/v2/", "Xelon API URL")
 	xelonClientID  = flag.String("xelon-client-id", "", "Xelon client ID for IP ranges")
-	xelonCloudID   = flag.String("xelon-cloud-id", "", "Xelon client ID for IP ranges")
+	xelonCloudID   = flag.String("xelon-cloud-id", "", "Xelon cloud identifier")
 	xelonToken     = flag.String("xelon-token", "", "Xelon access token")
 )
 

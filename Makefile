@@ -26,7 +26,7 @@ LDFLAGS := $(LDFLAGS) -X github.com/Xelon-AG/xelon-csi/internal/driver.version=$
 .PHONY: tools
 tools:
 	@echo "==> Installing required tooling..."
-	@cd ${TOOLS_DIR} && GOBIN=${TOOLS_BIN_DIR} go install github.com/golangci/golangci-lint/cmd/golangci-lint
+	@cd ${TOOLS_DIR} && GOBIN=${TOOLS_BIN_DIR} go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
 
 ## clean: Delete the build directory.
